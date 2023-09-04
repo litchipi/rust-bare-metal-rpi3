@@ -1,6 +1,6 @@
 # IDEA
 
-Jam helper
+Jam helper on my **Raspberry Pi 3 Model B rev 1.2**
 
 ## Features
 
@@ -38,14 +38,28 @@ Every iteration of the sampling IRQ, produce peak if needed on the tempo output
   - Format
   - Total duration
 - Saved on SD card
-- Use audio jack onboard:
-  - Pin 40: Right audio
-  - Pin 41: Left audio
+- Use audio jack onboard
 
+## Board support package
 
-## Resources
+Write basic library as a wrapper around the raw hardware registers
+
+Embedded-hal compliant for pins definition
+
+Arduino-like for pins usage:
+
+```
+fn set_pin(number)
+fn clear_pin(number)
+fn toggle_pin(number)
+fn uart_start(tx_pin, rx_pin, speed)
+fn init()
+
+fn set_irq(pin_number, event, handler_function)  // Event: Rising edge, falling edge, etc ...
+```
 
 ### Pinouts
+
 ```
 Bank 0:  P0 to P27
 Bank 1:  P28 to P45
@@ -75,3 +89,22 @@ P51: SD D1
 P52: SD D2
 P53: SD D3
 ```
+
+```
+Set pin:
+  Write 1 >> n (based on pin number 0..31) to GPSET0
+  or 
+  Write 1 >> (n-32) (based on pin number 32..57) to GPSET1
+
+Clear pin:
+  Write 1 >> n (based on pin number 0..31) to GPCLR0
+  or 
+  Write 1 >> (n-32) (based on pin number 32..57) to GPCLR1
+```
+
+## Resources
+
+- [RPI3FXProc](https://github.com/rahealy/rpi3fxproc)
+- [Low Level Devel - HDMI](https://www.youtube.com/watch?v=DxAxlc5Ldt4)
+- [Low Level Devel - Video with DMA](https://www.youtube.com/watch?v=4JtZQ88x5_c)
+- [Use GPU](https://github.com/BrianSidebotham/arm-tutorial-rpi/blob/master/part-5/readme.md)

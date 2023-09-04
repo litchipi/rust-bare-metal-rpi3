@@ -1,9 +1,10 @@
 [package]
-name = "jam_helper"
+name = "bsp_raspi3b1_2"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2" }
+aarch64-cpu = "9.3.1"
+bcm2837-lpa = "0.1.0"
