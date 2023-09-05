@@ -33,7 +33,7 @@
       buildInputs = build_deps ++ [ pkgs.qemu ];
     };
     apps.${system} = rec {
-      default = build;
+      default = emulate;
 
       build = mkScript "build" [] ''
         cargo build --target="aarch64-unknown-none-softfloat" --release
@@ -46,7 +46,7 @@
       
       emulate = mkScript "emulate" [ pkgs.qemu ] ''
         ${build.program}
-        qemu-system-aarch64 -M raspi3b -d in_asm -display none -kernel ./target/out/kernel.img
+        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./target/out/kernel.img
       '';
 
       inspect = mkScript "inspect" [] ''

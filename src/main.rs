@@ -4,6 +4,7 @@
 use core::panic::PanicInfo;
 
 use bsp_raspi3b1_2::errors::handle_panic;
+use bsp_raspi3b1_2::println;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -12,5 +13,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub fn _start_rust() -> ! {
-    panic!();
+    println!("Hello world!");
+
+    panic!("Main panic");
 }
