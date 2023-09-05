@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aarch64-cpu = "9.3.1"
-bcm2837-lpa = "0.1.0"
+# aarch64-cpu = "9.3.1"
+# bcm2837-lpa = "0.1.0"

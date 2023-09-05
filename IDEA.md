@@ -108,3 +108,32 @@ Clear pin:
 - [Low Level Devel - HDMI](https://www.youtube.com/watch?v=DxAxlc5Ldt4)
 - [Low Level Devel - Video with DMA](https://www.youtube.com/watch?v=4JtZQ88x5_c)
 - [Use GPU](https://github.com/BrianSidebotham/arm-tutorial-rpi/blob/master/part-5/readme.md)
+
+## SMP
+
+At boot:
+```
+  if nb_cpu == 0 {     // Primary CPU
+    kernel_init();
+  } else {
+    loop {
+      WFE()
+      WFI()
+      if variable_set(MEMORY_ADDR[nb_cpu]) {
+        execute_function(MEMORY_ADDR[nb_cpu]);
+      }
+    }
+  }
+```
+
+Translate this into ARM assembly, and test passing Rust functions to it using the primary CPU.
+
+Then, create a basic scheduler:
+- Interruptions:
+  - Generates operations requests
+- Primary CPU loop:
+  - Execute any operation request it can on its own: 
+    - Generate new timer IRQs
+    - Starts / stop a new process
+  - Send operations requests to any free CPU, or wait for one to be freed before
+  - Then go back to WFE / WFI

@@ -22,9 +22,9 @@ impl Screen {
         todo!();
     }
 
-    pub fn write_text(&self, line: u32, msg: String, style: TextStyle) {
-        todo!();
-    }
+    // pub fn write_text(&self, line: u32, msg: String, style: TextStyle) {
+    //     todo!();
+    // }
 
     pub fn draw_pixel(&self, x: u32, y: u32, color: Color) {
         todo!();
@@ -42,10 +42,10 @@ impl Screen {
         todo!();
     }
 
-    pub fn draw_polygon(&self, points: Vec<u32>, color: Color) {
-        assert!(points.len() < 2, "Not enough points to draw the polygon");
-        todo!();
-    }
+    // pub fn draw_polygon(&self, points: Vec<u32>, color: Color) {
+    //     assert!(points.len() < 2, "Not enough points to draw the polygon");
+    //     todo!();
+    // }
 
     pub fn fill_screen(&self, color: Color) {
         todo!();

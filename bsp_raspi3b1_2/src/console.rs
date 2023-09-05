@@ -5,11 +5,11 @@ impl Console {
         todo!();
     }
 
-    pub fn write(&self, msg: String) {
-        todo!();
-    }
+    // pub fn write(&self, msg: String) {
+    //     todo!();
+    // }
 
-    pub fn read(&self) -> Option<String> {
-        todo!();
-    }
+    // pub fn read(&self) -> Option<String> {
+    //     todo!();
+    // }
 }

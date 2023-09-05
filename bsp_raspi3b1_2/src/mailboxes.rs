@@ -158,12 +158,12 @@ enum RpiMailboxTag {
     TestPalette {
         offset: usize,
         length: usize,
-        palettes: Vec<u32>,
+        // palettes: Vec<u32>,
     } = 0x4400B,
     SetPaletsize {
         offset: usize,
         length: usize,
-        palettes: Vec<u32>,
+        // palettes: Vec<u32>,
     } = 0x4800B,
 
     SetCursorInfo {
@@ -202,8 +202,8 @@ enum RpiMailboxReply {
         base: u32,
         size: u32,
     },
-    Clocks(Vec<TagClockId>),
-    CommandLine(String),
+    // Clocks(Vec<TagClockId>),
+    // CommandLine(String),
     DmaChannels(u32),
     PowerState {
         device_id: TagDeviceId,
@@ -269,13 +269,13 @@ enum RpiMailboxReply {
         left: u32,
         right: u32,
     },
-    Palettes(Vec<u32>),
+    // Palettes(Vec<u32>),
 }
 
 impl RpiMailboxTag {
-    fn send(&self) -> Vec<u32> {
-        todo!();
-    }
+    // fn send(&self) -> Vec<u32> {
+    //     todo!();
+    // }
 }
 
 #[repr(u32)]

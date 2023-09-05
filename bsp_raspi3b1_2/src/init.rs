@@ -25,7 +25,13 @@ fn init_timer() {
     todo!();
 }
 
-//     Initialization of devices
+// IRQ register
+
+// pub fn register_irq(nb: u32, handler: Box<dyn FnOnce()>) {
+//     todo!();
+// }
+
+// Initialization of devices
 
 use crate::drivers::{SpiDriver, UartDriver};
 
