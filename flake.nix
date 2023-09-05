@@ -10,51 +10,50 @@
       inherit system;
       overlays = [ rust-overlay.overlays.default ];
     };
-    target_name = "jam_helper";
     rust_target = "aarch64-unknown-none-softfloat";
-    dev_env = {
-      buildInputs = with pkgs; [
-        (rust-bin.stable."1.72.0".default.override {
-          extensions = [ "rust-src" ];
-          targets = [ rust_target ];
-        })
-        coreboot-toolchain.aarch64
-      ];
-      RUSTFLAGS = builtins.concatStringsSep " " [
-        "-C target-cpu=cortex-a53"
-        "-C link-arg=--library-path=${./bsp_raspi3b1_2/src}"
-        "-C link-arg=--script=${./bsp_raspi3b1_2/src/kernel.ld}"
-        "-D warnings"
-      ];
-    };
+    rust_version = "1.72.0";
+    build_deps = with pkgs; [
+      (rust-bin.stable.${rust_version}.default.override {
+        extensions = [ "rust-src" ];
+        targets = [ rust_target ];
+      })
+      coreboot-toolchain.aarch64
+    ];
 
-    mkScript = name: text: let 
+    mkScript = name: deps: text: let 
       app = pkgs.writeShellApplication {
-        inherit name;
-        text = ''
-          export RUSTFLAGS="${dev_env.RUSTFLAGS}"
-
-        '' + text;
-        runtimeInputs = dev_env.buildInputs;
+        inherit name text;
+        runtimeInputs = build_deps ++ deps;
       };
     in { type = "app"; program = "${app}/bin/${name}"; };
     
+    target_name = "jam_helper";
   in {
-    devShells.${system}.default = pkgs.mkShell dev_env;
-
+    devShells.${system}.default = pkgs.mkShell {
+      buildInputs = build_deps ++ [ pkgs.qemu ];
+    };
     apps.${system} = rec {
       default = build;
-      build = mkScript "build" ''
-        env |grep RUSTFLAGS
+
+      build = mkScript "build" [] ''
         cargo build --target="aarch64-unknown-none-softfloat" --release
         mkdir -p target/out
-        cp ./target/${rust_target}/release/${target_name} ./target/out/kernel8
-        aarch64-elf-strip ./target/out/kernel8
-        aarch64-elf-objcopy ./target/out/kernel8 ./target/out/kernel.img
+        cp ./target/${rust_target}/release/${target_name} target/out/kernel.elf
+        cp target/out/kernel.elf target/out/kernel_stripped.elf
+        # aarch64-elf-strip target/out/kernel_stripped.elf
+        aarch64-elf-objcopy target/out/kernel_stripped.elf target/out/kernel.img
       '';
-      emulate = mkScript "emulate" ''
+      
+      emulate = mkScript "emulate" [ pkgs.qemu ] ''
+        ${build.program}
+        qemu-system-aarch64 -M raspi3b -d in_asm -display none -kernel ./target/out/kernel.img
       '';
-      flash = mkScript "flash" ''
+
+      inspect = mkScript "inspect" [] ''
+        aarch64-elf-readelf --headers ${build_kernel}/kernel.elf
+      '';
+
+      flash = mkScript "flash" [] ''
       '';
     };
   };

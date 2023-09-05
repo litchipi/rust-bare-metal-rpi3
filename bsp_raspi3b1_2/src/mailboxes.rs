@@ -361,8 +361,8 @@ enum GpuAllocationFlags {
 #[repr(u32)]
 #[derive(Debug)]
 enum PixelOrder {
-    BGR,
-    RGB,
+    Bgr,
+    Rgb,
 }
 
 #[repr(u32)]

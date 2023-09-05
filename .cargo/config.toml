@@ -1,8 +1,6 @@
 [build]
 target = "aarch64-unknown-none-softfloat"
-# rustflags = [
-#   "-C target-cpu=cortex-a53",
-#   "-C link-arg=--library-path=./src/",
-#   "-C link-arg=--script=./src/kernel.ld",
-#   "-D warnings",
-# ]
+
+[target.aarch64-unknown-none-softfloat]
+linker = "aarch64-elf-ld"
+ar = "aarch64-elf-ar"
