@@ -18,6 +18,7 @@
           extensions = [ "rust-src" ];
           targets = [ rust_target ];
         })
+        coreboot-toolchain.aarch64
       ];
       RUSTFLAGS = builtins.concatStringsSep " " [
         "-C target-cpu=cortex-a53"
@@ -47,9 +48,9 @@
         env |grep RUSTFLAGS
         cargo build --target="aarch64-unknown-none-softfloat" --release
         mkdir -p target/out
-        cp ./target/${rust_target}/release/${target_name} ./target/out/kernel8.elf
-        # strip ./target/out/kernel8.elf
-        # Objcopy
+        cp ./target/${rust_target}/release/${target_name} ./target/out/kernel8
+        aarch64-elf-strip ./target/out/kernel8
+        aarch64-elf-objcopy ./target/out/kernel8 ./target/out/kernel.img
       '';
       emulate = mkScript "emulate" ''
       '';
