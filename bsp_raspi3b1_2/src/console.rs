@@ -1,34 +1,51 @@
 use core::fmt::Write;
 
-pub struct Console;
+use crate::sync::NullLock;
 
-impl Console {
-    pub fn init() -> Console {
-        Console {}
+pub struct ConsoleInner;
+
+impl ConsoleInner {
+    pub const fn init() -> ConsoleInner {
+        ConsoleInner {}
     }
-
-    // pub fn write(&self, msg: String) {
-    //     todo!();
-    // }
-
-    // pub fn read(&self) -> Option<String> {
-    //     todo!();
-    // }
 }
 
-impl core::fmt::Write for Console {
+impl core::fmt::Write for ConsoleInner {
+    fn write_char(&mut self, c: char) -> core::fmt::Result {
+        unsafe {
+            core::ptr::write_volatile(0x3F20_1000 as *mut u8, c as u8);
+        }
+        Ok(())
+    }
+
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for c in s.chars() {
-            unsafe {
-                core::ptr::write_volatile(0x3F20_1000 as *mut u8, c as u8);
+            if c == '\n' {
+                self.write_char('\r')?;
             }
+
+            self.write_char(c)?;
         }
         Ok(())
     }
 }
 
+pub struct Console(NullLock<ConsoleInner>);
+
+impl Console {
+    pub const fn init() -> Console {
+        Console(NullLock::new(ConsoleInner::init()))
+    }
+
+    pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
+        self.0.lock(|inner| inner.write_fmt(args))
+    }
+}
+
+static CONSOLE: Console = Console::init();
+
 pub fn _print(args: core::fmt::Arguments) {
-    Console::init().write_fmt(args).unwrap();
+    CONSOLE.write_fmt(args).unwrap();
 }
 
 #[macro_export]

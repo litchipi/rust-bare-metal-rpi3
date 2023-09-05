@@ -6,6 +6,7 @@ mod boot;
 mod cpu;
 mod mailboxes;
 mod memory;
+mod sync;
 
 pub mod console;
 pub mod drivers;
