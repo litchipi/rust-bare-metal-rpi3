@@ -30,7 +30,7 @@
     target_name = "jam_helper";
   in {
     devShells.${system}.default = pkgs.mkShell {
-      buildInputs = build_deps ++ [ pkgs.qemu ];
+      buildInputs = build_deps ++ [ pkgs.qemu pkgs.minicom ];
     };
     apps.${system} = rec {
       default = emulate;
@@ -53,7 +53,9 @@
         aarch64-elf-readelf --headers ${build_kernel}/kernel.elf
       '';
 
-      flash = mkScript "flash" [] ''
+      minicom = mkScript "minicom" [ pkgs.minicom ] ''
+        UART_CLK_RATE=48000000
+        sudo minicom -D /dev/ttyAMA0 -b $UART_CLK_RATE
       '';
     };
   };
