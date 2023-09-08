@@ -2,7 +2,21 @@ use core::fmt::Write;
 
 use crate::sync::NullLock;
 
-pub struct ConsoleInner;
+pub static CONSOLE: Console = Console::init();
+
+pub struct Console(NullLock<ConsoleInner>);
+
+impl Console {
+    pub const fn init() -> Console {
+        Console(NullLock::new(ConsoleInner::init()))
+    }
+
+    pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
+        self.0.lock(|inner| inner.write_fmt(args))
+    }
+}
+
+struct ConsoleInner;
 
 impl ConsoleInner {
     pub const fn init() -> ConsoleInner {
@@ -29,20 +43,6 @@ impl core::fmt::Write for ConsoleInner {
         Ok(())
     }
 }
-
-pub struct Console(NullLock<ConsoleInner>);
-
-impl Console {
-    pub const fn init() -> Console {
-        Console(NullLock::new(ConsoleInner::init()))
-    }
-
-    pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
-        self.0.lock(|inner| inner.write_fmt(args))
-    }
-}
-
-static CONSOLE: Console = Console::init();
 
 pub fn _print(args: core::fmt::Arguments) {
     CONSOLE.write_fmt(args).unwrap();

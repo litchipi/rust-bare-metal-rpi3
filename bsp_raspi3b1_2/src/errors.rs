@@ -4,6 +4,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use crate::cpu::wait_forever;
 use crate::println;
 
+#[derive(Debug)]
+pub enum Errcode {}
+
 fn panic_prevent_reenter() {
     static PANIC_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 

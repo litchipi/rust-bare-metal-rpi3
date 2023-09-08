@@ -1,5 +1,9 @@
+mod gpio;
 mod spi;
+mod timer;
 mod uart;
 
-pub use spi::SpiDriver;
-pub use uart::UartDriver;
+pub use gpio::{PinMode, GPIO};
+pub use spi::SPI;
+pub use timer::TIMER;
+pub use uart::UART;

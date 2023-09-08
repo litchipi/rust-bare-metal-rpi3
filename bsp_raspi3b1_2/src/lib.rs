@@ -8,10 +8,11 @@ mod mailboxes;
 mod memory;
 mod sync;
 
+pub use cpu::spin_for_cycles;
+
 pub mod console;
 pub mod drivers;
 pub mod errors;
-pub mod gpio;
 pub mod init;
 pub mod screen;
 

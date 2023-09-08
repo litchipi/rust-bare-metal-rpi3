@@ -25,6 +25,58 @@ Sampling IRQ is the fastest (~ 48kHz ?)
 Main loop will update things on the global state based on the messages it received on its channel
 Then will just WFE
 
+### Timers
+
+Have a `Timer` struct that interfaces with the system Timer IRQ
+This struct only modified during Timer IRQ
+
+```
+pub struct Timer {
+  registered_timers: RwLock<Vec<u64>>,
+}
+impl Timer {
+  // Called inside the Timer IRQ handler
+  fn tick(&self) {
+    for time_left in self.registered_timers.write().iter_mut() {
+      *time_left = time_left.saturating_sub(TIMER_RESOLUTION_US);
+    }
+  }
+
+  // Register new timer to follow, return the number
+  fn register_new(&self, time_us: u64) -> usize {
+    let idx = self.registered_timers.read().len();
+    assert!((idx + 1) < MAX_TIMERS_COUNT, "Max timers count reached");
+    self.registered_timers.write().push(time_us);
+    idx
+  }
+
+  fn set(&self, timer_nb: usize, time_us: u64) {
+    match self.registered_timers.write().get_mut(&timer_nb) {
+      Some(timer) => *timer = time_us,
+      None => panic!("Attempt to set timer {timer_nb}, but it doesn't exist"),
+    }
+  }
+
+  // Get remaining time to wait (in microseconds)
+  fn get(&self, timer_nb: usize) -> u64 {
+    if let Some(rest) = self.registered_timers.read().get(timer_nb) {
+      rest
+    } else {
+      panic!("Unable to get timer {timer_nb}: Not there");
+    }
+  }
+
+  fn wait(&self, time_us: u64) {
+    let nb = self.register_new(time_us);
+    while self.get(nb) > 0 {
+      asm::wfi();
+    }
+  }
+}
+```
+
+Do not use this struct for sampling or screen rendering, but everything else is fine
+
 ### Translate tempo signal between volca and keystep
 
 IRQ on tempo rise, update the tempo state variable (based on duration since last IRQ)

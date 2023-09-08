@@ -1,3 +1,5 @@
+use crate::errors::Errcode;
+
 // First to be called
 //    Initialize default values everywhere
 //    Disable all devices by default
@@ -5,23 +7,28 @@
 //    Init IRQ controller and Timer
 //    Init allocator
 //    Init GPU
-pub fn init_bsp() {
+pub fn init_bsp() -> Result<(), Errcode> {
+    init_drivers()?;
+    Ok(())
+}
+
+fn init_drivers() -> Result<(), Errcode> {
+    Ok(())
+}
+
+fn init_allocator() -> Result<(), Errcode> {
     todo!();
 }
 
-fn init_allocator() {
+fn disable_all_devices() -> Result<(), Errcode> {
     todo!();
 }
 
-fn disable_all_devices() {
+fn init_irq_controller() -> Result<(), Errcode> {
     todo!();
 }
 
-fn init_irq_controller() {
-    todo!();
-}
-
-fn init_timer() {
+fn init_timer() -> Result<(), Errcode> {
     todo!();
 }
 
@@ -30,15 +37,3 @@ fn init_timer() {
 // pub fn register_irq(nb: u32, handler: Box<dyn FnOnce()>) {
 //     todo!();
 // }
-
-// Initialization of devices
-
-use crate::drivers::{SpiDriver, UartDriver};
-
-pub fn init_uart() -> UartDriver {
-    todo!();
-}
-
-pub fn init_spi(nb: u8) -> SpiDriver {
-    todo!();
-}
