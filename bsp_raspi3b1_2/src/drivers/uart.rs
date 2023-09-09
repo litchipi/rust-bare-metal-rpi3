@@ -9,16 +9,18 @@ pub static UART: UartDriver = UartDriver::init();
 
 pub struct UartDriver {
     registers: NullLock<Registers>,
+    pub init: NullLock<bool>,
 }
 
 impl UartDriver {
     const fn init() -> UartDriver {
         UartDriver {
             registers: NullLock::new(Registers::new(UART0_BASE)),
+            init: NullLock::new(false),
         }
     }
 
-    fn flush(&self) {
+    pub fn flush(&self) {
         // Spin until the busy bit is cleared.
         loop {
             let busy = self.registers.lock(|reg| {
@@ -52,10 +54,17 @@ impl UartDriver {
             // Turn the UART on.
             reg.CR.write(CR::UARTEN::Enabled + CR::TXE::Enabled + CR::RXE::Enabled);
         });
+        self.init.lock(|i| *i = true);
     }
 
     pub fn ready(&self) -> bool {
         !self.registers.lock(|reg| reg.FR.matches_all(FR::TXFF::SET))
+    }
+
+    pub fn write(&self, s: &str) {
+        for c in s.chars() {
+            self.write_char(c);
+        }
     }
 
     pub fn write_char(&self, c: char) {
@@ -70,20 +79,19 @@ impl UartDriver {
     }
 
     pub fn read_char(&self, blocking: bool) -> Option<char> {
-        loop {
-            if !self.ready() {
-                if !blocking {
-                    return None;
-                }
-                asm::nop();
-                continue;
+        while !self.ready() {
+            if !blocking {
+                return None;
             }
+            asm::nop();
+        }
 
-            let mut ret = self.registers.lock(|reg| reg.DR.get()) as u8 as char;
-            if ret == '\r' {
-                ret = '\n'
-            }
-            break Some(ret);
+        let ret = self.registers.lock(|reg| reg.DR.get()) as u8 as char;
+        Some(ret)
+    }
+
+    pub fn clear_rx(&self) {
+        while self.read_char(false).is_some() {
         }
     }
 }

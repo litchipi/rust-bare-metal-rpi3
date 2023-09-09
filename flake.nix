@@ -18,6 +18,7 @@
         targets = [ rust_target ];
       })
       coreboot-toolchain.aarch64
+      libudev-zero
     ];
 
     mkScript = name: deps: text: let 
@@ -36,6 +37,7 @@
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = build_deps ++ [ pkgs.qemu pkgs.minicom ];
+      PKG_CONFIG_PATH="${pkgs.libudev-zero}/lib/pkgconfig:$PKG_CONFIG_PATH";
     };
     apps.${system} = rec {
       default = emulate;

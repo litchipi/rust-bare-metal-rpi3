@@ -8,10 +8,13 @@ name = "jam_helper"
 test = false
 bench = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2" }
 
 [build-dependencies]
 bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2", features = ["builder"] }
+
+[workspace]
+members = [
+  "chainloader"
+]

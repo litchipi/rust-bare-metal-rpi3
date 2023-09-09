@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 
 use tock_registers::RegisterLongName;
 
+pub const BOARD_DEFAULT_LOAD_ADDRESS: usize = 0x8_0000;
 pub const BASE: usize = 0x3F00_0000;
 pub const SYSTIMER_BASE: usize = BASE + 0x0000_3000;
 pub const TXP_BASE: usize = BASE + 0x0000_4000;
