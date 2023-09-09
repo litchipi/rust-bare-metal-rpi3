@@ -20,11 +20,11 @@ impl UartDriver {
 
     fn flush(&self) {
         // Spin until the busy bit is cleared.
-        self.registers.lock(|reg| {
-            while reg.FR.matches_all(FR::BUSY::SET) {
+        loop {
+            if !self.ready() {
                 asm::nop();
             }
-        })
+        }
     }
 
     pub fn configure(&self, txd: usize, rxd: usize) {

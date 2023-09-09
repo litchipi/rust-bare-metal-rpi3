@@ -17,14 +17,18 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub fn _start_rust() -> ! {
+    // FIXME    Stuck somewhere waiting for UART
+    //    Create debug macros (to write to raw memory) and debug this
+    //    Once UART messages prints to emulation, try on raspberry pi
+    let uart = &bsp_raspi3b1_2::drivers::UART;
+    uart.configure(14, 15);
+    println!("Done");
+
     println!("Hello world!");
 
     let gpios = &bsp_raspi3b1_2::drivers::GPIO;
     gpios.configure(&[(21, PinMode::Output)]);
     spin_for_cycles(100_000);
-
-    let uart  = &bsp_raspi3b1_2::drivers::UART;
-    uart.configure(14, 15);
 
     loop {
         println!("Led ON");

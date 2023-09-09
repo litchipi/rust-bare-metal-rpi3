@@ -50,7 +50,7 @@
       
       emulate = mkScript "emulate" [ pkgs.qemu ] ''
         ${build.program}
-        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel.img
+        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel8.img
       '';
 
       inspect = mkScript "inspect" [] ''
@@ -59,7 +59,7 @@
 
       minicom = mkScript "minicom" [ pkgs.minicom ] ''
         UART_CLK_RATE=48000000
-        sudo minicom -D /dev/ttyAMA0 -b $UART_CLK_RATE
+        sudo minicom -D "$1" -b $UART_CLK_RATE
       '';
 
       transfer = mkScript "transfer" [ ] ''
