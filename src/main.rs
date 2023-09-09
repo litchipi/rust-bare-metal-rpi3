@@ -21,7 +21,10 @@ pub fn _start_rust() -> ! {
 
     let gpios = &bsp_raspi3b1_2::drivers::GPIO;
     gpios.configure(&[(21, PinMode::Output)]);
-    spin_for_cycles(10_000_000);
+    spin_for_cycles(100_000);
+
+    let uart  = &bsp_raspi3b1_2::drivers::UART;
+    uart.configure(14, 15);
 
     loop {
         println!("Led ON");

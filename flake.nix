@@ -26,6 +26,11 @@
         runtimeInputs = build_deps ++ deps;
       };
     in { type = "app"; program = "${app}/bin/${name}"; };
+
+    config_file = builtins.concatStringsSep "\n" [
+      "init_uart_clock=48000000"
+      "arm_64bit=1"
+    ];
     
     target_name = "jam_helper";
   in {
@@ -65,6 +70,9 @@
         fi
         ${build.program}
         cp out/kernel8.img "$1"
+        cat << EOF > "$1/config.txt"
+        ${config_file}
+        EOF
         shift 1;
         sync
         echo "Done"

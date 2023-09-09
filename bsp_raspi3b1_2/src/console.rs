@@ -26,9 +26,8 @@ impl ConsoleInner {
 
 impl core::fmt::Write for ConsoleInner {
     fn write_char(&mut self, c: char) -> core::fmt::Result {
-        unsafe {
-            core::ptr::write_volatile(0x3F20_1000 as *mut u8, c as u8);
-        }
+        let uart = &crate::drivers::UART;
+        uart.write_char(c);
         Ok(())
     }
 

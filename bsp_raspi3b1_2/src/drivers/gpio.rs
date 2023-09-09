@@ -3,7 +3,7 @@ use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 use tock_registers::{register_bitfields, register_structs};
 
 use crate::memory::{MMIODerefWrapper, GPIO_BASE};
-use crate::println;
+use crate::spin_for_cycles;
 use crate::sync::NullLock;
 
 const TOT_NUMBER_GPIO: usize = 54;
@@ -27,9 +27,17 @@ impl GpioDriver {
         })
     }
 
-    pub fn configure(&self, config: &[(u32, PinMode)]) {
+    pub fn configure(&self, config: &[(usize, PinMode)]) {
         let mut used_pins = [false; TOT_NUMBER_GPIO];
         let mut gpfsel: [u32; 6] = [0, 0, 0, 0, 0, 0];
+        self.registers.lock(|reg| {
+            gpfsel[0] = reg.GPFSEL0.get();
+            gpfsel[1] = reg.GPFSEL1.get();
+            gpfsel[2] = reg.GPFSEL2.get();
+            gpfsel[3] = reg.GPFSEL3.get();
+            gpfsel[4] = reg.GPFSEL4.get();
+            gpfsel[5] = reg.GPFSEL5.get();
+        });
 
         for (pin_nb, mode) in config {
             let fsel_idx = (pin_nb / 10) as usize;
@@ -55,8 +63,8 @@ impl GpioDriver {
     }
 
     pub fn set_pin(&self, nb: usize) {
+        assert!(nb < TOT_NUMBER_GPIO);
         self.registers.lock(|reg| {
-            assert!(nb < TOT_NUMBER_GPIO);
             if nb < 32 {
                 reg.GPSET0.set(1 << nb);
                 reg.GPSET0.set(0);
@@ -68,8 +76,8 @@ impl GpioDriver {
     }
 
     pub fn clear_pin(&self, nb: usize) {
+        assert!(nb < TOT_NUMBER_GPIO);
         self.registers.lock(|reg| {
-            assert!(nb < TOT_NUMBER_GPIO);
             if nb < 32 {
                 reg.GPCLR0.set(1 << nb);
                 reg.GPCLR0.set(0);
@@ -81,13 +89,37 @@ impl GpioDriver {
     }
 
     pub fn get_pin_state(&self, nb: usize) -> bool {
+        assert!(nb < TOT_NUMBER_GPIO);
         self.registers.lock(|reg| {
-            assert!(nb < TOT_NUMBER_GPIO);
             if nb < 32 {
                 (reg.GPLEV0.get() | (1 << nb)) > 0
             } else {
                 (reg.GPLEV1.get() | (1 << (nb - 32))) > 0
             }
+        })
+    }
+
+    pub fn disable_pud(&self, pins: &[usize]) {
+        assert!(pins.iter().all(|nb| *nb < TOT_NUMBER_GPIO));
+        self.registers.lock(|reg| {
+            reg.GPPUD.set(0);
+            spin_for_cycles(1500);
+            let mut val0 = 0u32;
+            let mut val1 = 0u32;
+            for nb in pins.iter() {
+                if *nb < 32 {
+                    val0 |= 1 << nb;
+                } else {
+                    val1 |= 1 << (nb - 32);
+                }
+            }
+            reg.GPPUDCLK0.set(val0);
+            reg.GPPUDCLK1.set(val1);
+
+            spin_for_cycles(1500);
+            reg.GPPUD.set(0);
+            reg.GPPUDCLK0.set(0);
+            reg.GPPUDCLK1.set(0);
         })
     }
 }
@@ -131,7 +163,7 @@ pub enum PinMode {
 }
 
 impl PinMode {
-    pub fn get_value(&self, pin_nb: u32) -> u32 {
+    pub fn get_value(&self, pin_nb: usize) -> u32 {
         match self {
             PinMode::Input => 0b000,
             PinMode::Output => 0b001,
@@ -239,7 +271,7 @@ impl PinMode {
                 arg => unreachable!("SmiSweNSrwN {arg:?}"),
             },
             PinMode::SmiSd(n) => {
-                if (pin_nb == (8 + (*n as u32))) || (pin_nb == (36 + (*n as u32))) {
+                if (pin_nb == (8 + *n)) || (pin_nb == (36 + *n)) {
                     0b101
                 } else {
                     unreachable!("SmiSd ({n}, {pin_nb})")
