@@ -37,16 +37,15 @@
 
       build = mkScript "build" [] ''
         cargo build --target="aarch64-unknown-none-softfloat" --release
-        mkdir -p target/out
-        cp ./target/${rust_target}/release/${target_name} target/out/kernel.elf
-        cp target/out/kernel.elf target/out/kernel_stripped.elf
-        # aarch64-elf-strip target/out/kernel_stripped.elf
-        aarch64-elf-objcopy target/out/kernel_stripped.elf target/out/kernel.img
+        mkdir -p out
+        cp ./target/${rust_target}/release/${target_name} out/kernel.elf
+        aarch64-elf-strip out/kernel.elf
+        aarch64-elf-objcopy -O binary out/kernel.elf out/kernel8.img
       '';
       
       emulate = mkScript "emulate" [ pkgs.qemu ] ''
         ${build.program}
-        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./target/out/kernel.img
+        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel.img
       '';
 
       inspect = mkScript "inspect" [] ''
@@ -56,6 +55,19 @@
       minicom = mkScript "minicom" [ pkgs.minicom ] ''
         UART_CLK_RATE=48000000
         sudo minicom -D /dev/ttyAMA0 -b $UART_CLK_RATE
+      '';
+
+      transfer = mkScript "transfer" [ ] ''
+        set -e
+        if [ $# -lt 1 ]; then
+          echo "Usage: $0 <copy destination>"
+          exit 1;
+        fi
+        ${build.program}
+        cp out/kernel8.img "$1"
+        shift 1;
+        sync
+        echo "Done"
       '';
     };
   };

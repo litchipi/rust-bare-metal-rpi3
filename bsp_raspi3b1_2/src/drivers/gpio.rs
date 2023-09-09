@@ -3,6 +3,7 @@ use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 use tock_registers::{register_bitfields, register_structs};
 
 use crate::memory::{MMIODerefWrapper, GPIO_BASE};
+use crate::println;
 use crate::sync::NullLock;
 
 const TOT_NUMBER_GPIO: usize = 54;
@@ -17,6 +18,13 @@ impl GpioDriver {
         GpioDriver {
             registers: NullLock::new(GpioRegisters::new(GPIO_BASE)),
         }
+    }
+
+    pub fn panic_led_on(&self) {
+        self.registers.lock(|reg| {
+            reg.GPFSEL2.write(GPFSEL2::FSEL21::Output);
+            reg.GPSET0.set(1 << 21);
+        })
     }
 
     pub fn configure(&self, config: &[(u32, PinMode)]) {
@@ -51,8 +59,10 @@ impl GpioDriver {
             assert!(nb < TOT_NUMBER_GPIO);
             if nb < 32 {
                 reg.GPSET0.set(1 << nb);
+                reg.GPSET0.set(0);
             } else {
                 reg.GPSET1.set(1 << (nb - 32));
+                reg.GPSET1.set(0);
             }
         })
     }
@@ -62,8 +72,10 @@ impl GpioDriver {
             assert!(nb < TOT_NUMBER_GPIO);
             if nb < 32 {
                 reg.GPCLR0.set(1 << nb);
+                reg.GPCLR0.set(0);
             } else {
                 reg.GPCLR1.set(1 << (nb - 32));
+                reg.GPCLR1.set(0);
             }
         })
     }
