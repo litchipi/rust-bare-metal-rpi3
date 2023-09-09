@@ -1,7 +1,7 @@
 use aarch64_cpu::asm;
 use tock_registers::{register_structs, register_bitfields, registers::{ReadWrite, ReadOnly, WriteOnly}, interfaces::{Readable, Writeable}};
 
-use crate::{memory::{MMIODerefWrapper, UART0_BASE}, sync::NullLock, println};
+use crate::{memory::{MMIODerefWrapper, UART0_BASE}, sync::NullLock};
 
 use super::PinMode;
 
@@ -21,8 +21,13 @@ impl UartDriver {
     fn flush(&self) {
         // Spin until the busy bit is cleared.
         loop {
-            if !self.ready() {
+            let busy = self.registers.lock(|reg| {
+                reg.FR.matches_all(FR::BUSY::SET)
+            });
+            if busy {
                 asm::nop();
+            } else {
+                break;
             }
         }
     }
@@ -47,7 +52,6 @@ impl UartDriver {
             // Turn the UART on.
             reg.CR.write(CR::UARTEN::Enabled + CR::TXE::Enabled + CR::RXE::Enabled);
         });
-        println!("UART now enabled");
     }
 
     pub fn ready(&self) -> bool {
@@ -56,7 +60,7 @@ impl UartDriver {
 
     pub fn write_char(&self, c: char) {
         loop {
-            if self.ready() {
+            if !self.ready() {
                 asm::nop();
             } else {
                 self.registers.lock(|reg| reg.DR.set(c as u32));

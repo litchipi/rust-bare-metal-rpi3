@@ -58,8 +58,7 @@
       '';
 
       minicom = mkScript "minicom" [ pkgs.minicom ] ''
-        UART_CLK_RATE=48000000
-        sudo minicom -D "$1" -b $UART_CLK_RATE
+        sudo minicom -D "$1" -b 921600
       '';
 
       transfer = mkScript "transfer" [ ] ''

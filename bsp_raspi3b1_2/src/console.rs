@@ -12,7 +12,9 @@ impl Console {
     }
 
     pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
-        self.0.lock(|inner| inner.write_fmt(args))
+        self.0.lock(|console| {
+            console.write_fmt(args)
+        })
     }
 }
 
@@ -27,7 +29,6 @@ impl ConsoleInner {
 impl core::fmt::Write for ConsoleInner {
     fn write_char(&mut self, c: char) -> core::fmt::Result {
         let uart = &crate::drivers::UART;
-        unsafe { core::ptr::write_volatile(0x3F20_1000 as *mut u8, c as u8); }
         uart.write_char(c);
         Ok(())
     }
@@ -37,11 +38,24 @@ impl core::fmt::Write for ConsoleInner {
             if c == '\n' {
                 self.write_char('\r')?;
             }
-
             self.write_char(c)?;
         }
         Ok(())
     }
+}
+
+pub fn _print_raw_str_nl(s: &str) {
+    let addr = 0x3F20_1000 as *mut u8;
+    for c in s.chars() {
+        if c.is_ascii() {
+            unsafe { core::ptr::write_volatile(addr, c as u8); }
+        }
+    }
+    unsafe { core::ptr::write_volatile(addr, '\n' as u8); }
+}
+
+pub fn _print_raw_fmt_nl(args: core::fmt::Arguments) {
+    _print_raw_str_nl(args.as_str().unwrap())
 }
 
 pub fn _print(args: core::fmt::Arguments) {
@@ -59,5 +73,13 @@ macro_rules! println {
     ($($arg:tt)*) => ({
         $crate::console::_print(format_args!($($arg)*));
         $crate::console::_print(format_args!("\n"));
+    })
+}
+
+#[macro_export]
+macro_rules! dbg {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ({
+        $crate::console::_print_raw_fmt_nl(format_args!($($arg)*));
     })
 }
