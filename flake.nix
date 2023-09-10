@@ -55,8 +55,14 @@
         qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel8.img
       '';
 
+      emulate-chainloader = mkScript "emulate-chainloader" [ pkgs.qemu ] ''
+        ${chainloader-client.program}
+        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/chainloader.img
+      '';
+
       provision_chainloader = mkScript "transfer" [ ] ''
         set -e
+        ${chainloader-client.program}
         if [ $# -lt 1 ]; then
           echo "Usage: $0 <copy destination>"
           exit 1;
@@ -80,9 +86,9 @@
       chainloader-client = mkScript "chainloader-client" [] ''
         cd chainloader-client
         cargo build --target="aarch64-unknown-none-softfloat" --release
+        mkdir -p ../out
+        cp ./target/${rust_target}/release/chainloader-client ../out/chainloader.elf
         cd ..
-        mkdir -p out
-        cp ./target/${rust_target}/release/chainloader-client out/chainloader.elf
         aarch64-elf-strip out/chainloader.elf
         aarch64-elf-objcopy -O binary out/chainloader.elf out/chainloader.img
       '';

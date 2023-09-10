@@ -28,6 +28,9 @@ fn start(args: &Args, mut serial: Box<dyn SerialPort>) {
     while buff != [3; 3] {
         let _ = serial
             .read(&mut buff);
+        println!("{buff:?}");
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
     }
     println!("Got init from target");
 
@@ -41,6 +44,14 @@ fn start(args: &Args, mut serial: Box<dyn SerialPort>) {
     println!("Size of kernel: {kernel_size}");
     send_size(&mut serial, kernel_size);
     println!("Size sent to target");
+
+    let mut rep = [0u8; 2];
+    let _ = serial.read(&mut rep);
+    if rep != [79, 75] {
+        println!("Expected OK from target, got {rep:?}");
+        println!("Aborting");
+        return;
+    }
 
     println!("Loading the kernel to the target ...");
     let nbatches = (kernel_size / 512) as usize;

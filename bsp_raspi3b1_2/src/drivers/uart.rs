@@ -1,7 +1,7 @@
 use aarch64_cpu::asm;
 use tock_registers::{register_structs, register_bitfields, registers::{ReadWrite, ReadOnly, WriteOnly}, interfaces::{Readable, Writeable}};
 
-use crate::{memory::{MMIODerefWrapper, UART0_BASE}, sync::NullLock};
+use crate::{memory::{MMIODerefWrapper, UART0_BASE}, sync::NullLock, dbg};
 
 use super::PinMode;
 
@@ -57,10 +57,6 @@ impl UartDriver {
         self.init.lock(|i| *i = true);
     }
 
-    pub fn ready(&self) -> bool {
-        !self.registers.lock(|reg| reg.FR.matches_all(FR::TXFF::SET))
-    }
-
     pub fn write(&self, s: &str) {
         for c in s.chars() {
             self.write_char(c);
@@ -68,30 +64,29 @@ impl UartDriver {
     }
 
     pub fn write_char(&self, c: char) {
-        loop {
-            if !self.ready() {
+        while self.registers.lock(|reg| reg.FR.matches_all(FR::TXFF::SET)) {
                 asm::nop();
-            } else {
-                self.registers.lock(|reg| reg.DR.set(c as u32));
-                break;
-            }
         }
+        self.registers.lock(|reg| reg.DR.set(c as u32));
     }
 
     pub fn read_char(&self, blocking: bool) -> Option<char> {
-        while !self.ready() {
+        while self.registers.lock(|reg| reg.FR.matches_all(FR::RXFE::SET)) {
             if !blocking {
                 return None;
             }
             asm::nop();
         }
-
         let ret = self.registers.lock(|reg| reg.DR.get()) as u8 as char;
         Some(ret)
     }
 
     pub fn clear_rx(&self) {
-        while self.read_char(false).is_some() {
+        loop {
+            match self.read_char(false) {
+                Some(c) => dbg!("got char: '{c}'"),
+                None => break,
+            }
         }
     }
 }

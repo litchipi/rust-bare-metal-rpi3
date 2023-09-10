@@ -44,18 +44,24 @@ impl core::fmt::Write for ConsoleInner {
     }
 }
 
-pub fn _print_raw_str_nl(s: &str) {
-    let addr = 0x3F20_1000 as *mut u8;
-    for c in s.chars() {
-        if c.is_ascii() {
-            unsafe { core::ptr::write_volatile(addr, c as u8); }
+struct RawConsole;
+
+impl core::fmt::Write for RawConsole {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let addr = 0x3F20_1000 as *mut u8;
+        for c in s.chars() {
+            if c.is_ascii() {
+                unsafe { core::ptr::write_volatile(addr, c as u8); }
+            }
         }
+        unsafe { core::ptr::write_volatile(addr, '\n' as u8); }
+        Ok(())
     }
-    unsafe { core::ptr::write_volatile(addr, '\n' as u8); }
 }
 
 pub fn _print_raw_fmt_nl(args: core::fmt::Arguments) {
-    _print_raw_str_nl(args.as_str().unwrap())
+    let mut console = RawConsole {};
+    core::fmt::write(&mut console, args).unwrap();
 }
 
 pub fn _print(args: core::fmt::Arguments) {
