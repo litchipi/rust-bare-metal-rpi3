@@ -5,10 +5,10 @@ use clap::{Parser, arg};
 #[derive(Parser)]
 pub struct Args {
     #[arg(short, long)]
-    serial_port: PathBuf,
+    serial_port: String,
 }
 
 fn main() {
     let args = Args::parse();
-    let port = serialport::new(Cow::new(args.serial_port), 921600);
+    let port = serialport::new(args.serial_port, 921600);
 }
