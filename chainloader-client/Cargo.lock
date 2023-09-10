@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jam_helper"
+name = "chainloader-client"
 version = "0.1.0"
 dependencies = [
  "bsp_raspi3b1_2",

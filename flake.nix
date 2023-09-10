@@ -55,22 +55,14 @@
         qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel8.img
       '';
 
-      inspect = mkScript "inspect" [] ''
-        aarch64-elf-readelf --headers ${build_kernel}/kernel.elf
-      '';
-
-      minicom = mkScript "minicom" [ pkgs.minicom ] ''
-        sudo minicom -D "$1" -b 921600
-      '';
-
-      transfer = mkScript "transfer" [ ] ''
+      provision_chainloader = mkScript "transfer" [ ] ''
         set -e
         if [ $# -lt 1 ]; then
           echo "Usage: $0 <copy destination>"
           exit 1;
         fi
         ${build.program}
-        cp out/kernel8.img "$1"
+        cp out/chainloader.img "$1/kernel8.img"
         cat << EOF > "$1/config.txt"
         ${config_file}
         EOF
@@ -79,9 +71,20 @@
         echo "Done"
       '';
 
-      chainloader = mkScript "chainloader" [] ''
-        cd chainloader
-        cargo run --target x86_64-unknown-linux
+      chainloader-server = mkScript "chainloader-server" [] ''
+        cd chainloader-server
+        cargo b --release --target x86_64-unknown-linux-gnu
+        sudo ../target/x86_64-unknown-linux-gnu/release/chainloader -s "$1" -k ../out/kernel8.img
+      '';
+
+      chainloader-client = mkScript "chainloader-client" [] ''
+        cd chainloader-client
+        cargo build --target="aarch64-unknown-none-softfloat" --release
+        cd ..
+        mkdir -p out
+        cp ./target/${rust_target}/release/chainloader-client out/chainloader.elf
+        aarch64-elf-strip out/chainloader.elf
+        aarch64-elf-objcopy -O binary out/chainloader.elf out/chainloader.img
       '';
     };
   };
