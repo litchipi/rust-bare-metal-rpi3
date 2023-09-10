@@ -1,6 +1,0 @@
-[build]
-target = "aarch64-unknown-none-softfloat"
-
-[target.aarch64-unknown-none-softfloat]
-linker = "aarch64-elf-ld"
-ar = "aarch64-elf-ar"
