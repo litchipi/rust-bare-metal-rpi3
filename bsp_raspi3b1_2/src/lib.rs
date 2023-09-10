@@ -56,12 +56,7 @@ pub fn chainloader_binary_load(uart: &drivers::uart::UartDriver) -> ! {
             );
         }
     }
-
     uart.write("OK");
-
-    uart.write("This is another test\n");
-
-    println!("[ML] Loaded! Executing the payload now\n");
     uart.flush();
     let kernel: fn() -> ! = unsafe { core::mem::transmute(kernel_addr) };
     kernel()

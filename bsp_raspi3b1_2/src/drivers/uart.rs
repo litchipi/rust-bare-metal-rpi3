@@ -90,8 +90,7 @@ impl UartDriver {
     }
 
     pub fn clear_rx(&self) {
-        while let Some(c) = self.read_char(false) {
-        }
+        while let Some(c) = self.read_char(false) {}
     }
 }
 
