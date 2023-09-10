@@ -6,7 +6,6 @@ use tock_registers::{
 };
 
 use crate::{
-    dbg,
     memory::{MMIODerefWrapper, UART0_BASE},
     sync::NullLock,
 };
@@ -91,11 +90,7 @@ impl UartDriver {
     }
 
     pub fn clear_rx(&self) {
-        loop {
-            match self.read_char(false) {
-                Some(c) => dbg!("got char: '{c}'"),
-                None => break,
-            }
+        while let Some(c) = self.read_char(false) {
         }
     }
 }

@@ -40,10 +40,10 @@ impl GpioDriver {
         });
 
         for (pin_nb, mode) in config {
-            let fsel_idx = (pin_nb / 10) as usize;
+            let fsel_idx = pin_nb / 10;
             let fsel_offset = (pin_nb % 10) * 3;
             let val = mode.get_value(*pin_nb);
-            let used_pins_idx: usize = (*pin_nb).try_into().unwrap();
+            let used_pins_idx: usize = *pin_nb;
             assert!(
                 !used_pins[used_pins_idx],
                 "Pin already configured for something else"
