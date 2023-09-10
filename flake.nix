@@ -55,9 +55,18 @@
         qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/kernel8.img
       '';
 
-      emulate-chainloader = mkScript "emulate-chainloader" [ pkgs.qemu ] ''
+      emulate-chainloader = let
+        qemu_args = builtins.concatStringsSep " " [
+          "-M raspi3b"
+          "-serial pty"
+          # "-monitor stdio"
+          "-D ./chainloader.log"
+          "-display none"
+          "-kernel ./out/chainloader.img"
+        ];
+      in mkScript "emulate-chainloader" [ pkgs.qemu ] ''
         ${chainloader-client.program}
-        qemu-system-aarch64 -M raspi3b -serial stdio -display none -kernel ./out/chainloader.img
+        qemu-system-aarch64 ${qemu_args}
       '';
 
       provision_chainloader = mkScript "transfer" [ ] ''
@@ -67,7 +76,6 @@
           echo "Usage: $0 <copy destination>"
           exit 1;
         fi
-        ${build.program}
         cp out/chainloader.img "$1/kernel8.img"
         cat << EOF > "$1/config.txt"
         ${config_file}
@@ -80,15 +88,15 @@
       chainloader-server = mkScript "chainloader-server" [] ''
         cd chainloader-server
         cargo b --release --target x86_64-unknown-linux-gnu
-        sudo ../target/x86_64-unknown-linux-gnu/release/chainloader -s "$1" -k ../out/kernel8.img
+        sudo ../target/x86_64-unknown-linux-gnu/release/chainloader-server -s "$1" -k ../out/kernel8.img
       '';
 
       chainloader-client = mkScript "chainloader-client" [] ''
         cd chainloader-client
         cargo build --target="aarch64-unknown-none-softfloat" --release
         mkdir -p ../out
-        cp ./target/${rust_target}/release/chainloader-client ../out/chainloader.elf
         cd ..
+        cp ./target/${rust_target}/release/chainloader-client ./out/chainloader.elf
         aarch64-elf-strip out/chainloader.elf
         aarch64-elf-objcopy -O binary out/chainloader.elf out/chainloader.img
       '';

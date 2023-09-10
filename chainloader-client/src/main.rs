@@ -3,17 +3,15 @@
 
 use core::panic::PanicInfo;
 
+use bsp_raspi3b1_2::drivers::gpio::PinMode;
 use bsp_raspi3b1_2::errors::handle_panic;
-use bsp_raspi3b1_2::{chainloader_binary_load, dbg};
-use bsp_raspi3b1_2::drivers::PinMode;
+use bsp_raspi3b1_2::{chainloader_binary_load, dbg, spin_for_cycles};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    let gpio = &bsp_raspi3b1_2::drivers::GPIO;
-    gpio.configure(&[
-        (21, PinMode::Output),
-    ]);
-    gpio.set_pin(21);
+    let uart = &bsp_raspi3b1_2::drivers::UART;
+    uart.configure(14, 15);
+    uart.write("KO");
     handle_panic(info);
 }
 
@@ -21,6 +19,9 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn _start_rust() -> ! {
     let uart = &bsp_raspi3b1_2::drivers::UART;
     uart.configure(14, 15);
-    dbg!("Starting chainloading...");
-    chainloader_binary_load();
+    chainloader_binary_load(uart);
+    // loop {
+    //     uart.write("3");
+    //     spin_for_cycles(1_200_000);
+    // }
 }

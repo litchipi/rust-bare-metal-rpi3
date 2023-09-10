@@ -12,9 +12,7 @@ impl Console {
     }
 
     pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
-        self.0.lock(|console| {
-            console.write_fmt(args)
-        })
+        self.0.lock(|console| console.write_fmt(args))
     }
 }
 
@@ -51,10 +49,14 @@ impl core::fmt::Write for RawConsole {
         let addr = 0x3F20_1000 as *mut u8;
         for c in s.chars() {
             if c.is_ascii() {
-                unsafe { core::ptr::write_volatile(addr, c as u8); }
+                unsafe {
+                    core::ptr::write_volatile(addr, c as u8);
+                }
             }
         }
-        unsafe { core::ptr::write_volatile(addr, '\n' as u8); }
+        unsafe {
+            core::ptr::write_volatile(addr, '\n' as u8);
+        }
         Ok(())
     }
 }

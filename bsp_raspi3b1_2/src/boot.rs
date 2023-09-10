@@ -4,23 +4,27 @@ use core::arch::global_asm;
 #[link_section = ".text._start_arguments"]
 static BOOT_CORE_ID: u64 = 0;
 
-
-global_asm!(r"
+global_asm!(
+    r"
     .macro ADR_ABS register, symbol
         movz \register, #:abs_g2:\symbol
         movk \register, #:abs_g1_nc:\symbol
         movk \register, #:abs_g0_nc:\symbol
     .endm
-");
+"
+);
 
-global_asm!(r"
+global_asm!(
+    r"
     .macro ADR_REL register, symbol
         adrp \register, \symbol
         add \register, \register, #:lo12:\symbol
     .endm
-");
+"
+);
 
-global_asm!(r"
+global_asm!(
+    r"
     .section .text._start
 
     _start:

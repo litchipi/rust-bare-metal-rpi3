@@ -3,7 +3,7 @@
 
 use core::panic::PanicInfo;
 
-use bsp_raspi3b1_2::{errors::handle_panic, drivers::PinMode, spin_for_cycles, println};
+use bsp_raspi3b1_2::{drivers::gpio::PinMode, errors::handle_panic, println, spin_for_cycles};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -15,16 +15,14 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 pub fn _start_rust() -> ! {
     let gpio = &bsp_raspi3b1_2::drivers::GPIO;
-    gpio.configure(&[
-        (21, PinMode::Output),
-    ]);
+    gpio.configure(&[(21, PinMode::Output)]);
     loop {
         println!("LED ON");
         gpio.set_pin(21);
-        spin_for_cycles(12_000_000);
+        spin_for_cycles(2_000_000);
 
         println!("LED OFF");
         gpio.clear_pin(21);
-        spin_for_cycles(12_000_000);
+        spin_for_cycles(500_000);
     }
 }

@@ -5,6 +5,8 @@ fn main() {
         Ok(dir) => PathBuf::from(dir),
         Err(_) => std::env::current_dir()
             .expect("Unable to get current dir")
+            .parent()
+            .unwrap()
             .join("target"),
     };
     let ld_file_path = target_dir.join("kernel.ld");

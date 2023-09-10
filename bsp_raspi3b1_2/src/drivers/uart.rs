@@ -1,9 +1,17 @@
 use aarch64_cpu::asm;
-use tock_registers::{register_structs, register_bitfields, registers::{ReadWrite, ReadOnly, WriteOnly}, interfaces::{Readable, Writeable}};
+use tock_registers::{
+    interfaces::{Readable, Writeable},
+    register_bitfields, register_structs,
+    registers::{ReadOnly, ReadWrite, WriteOnly},
+};
 
-use crate::{memory::{MMIODerefWrapper, UART0_BASE}, sync::NullLock, dbg};
+use crate::{
+    dbg,
+    memory::{MMIODerefWrapper, UART0_BASE},
+    sync::NullLock,
+};
 
-use super::PinMode;
+use super::gpio::PinMode;
 
 pub static UART: UartDriver = UartDriver::init();
 
@@ -23,9 +31,7 @@ impl UartDriver {
     pub fn flush(&self) {
         // Spin until the busy bit is cleared.
         loop {
-            let busy = self.registers.lock(|reg| {
-                reg.FR.matches_all(FR::BUSY::SET)
-            });
+            let busy = self.registers.lock(|reg| reg.FR.matches_all(FR::BUSY::SET));
             if busy {
                 asm::nop();
             } else {
@@ -36,23 +42,22 @@ impl UartDriver {
 
     pub fn configure(&self, txd: usize, rxd: usize) {
         let gpios = &super::GPIO;
-        gpios.configure(&[
-            (txd, PinMode::UartTxd(0)),
-            (rxd, PinMode::UartRxd(0)),
-        ]);
+        gpios.configure(&[(txd, PinMode::UartTxd(0)), (rxd, PinMode::UartRxd(0))]);
         gpios.disable_pud(&[txd, rxd]);
         self.flush();
         self.registers.lock(|reg| {
-            reg.CR.set(0);    // Turn the UART off temporarily.
-            reg.ICR.write(ICR::ALL::CLEAR);    // Clear all pending interrupts.
+            reg.CR.set(0); // Turn the UART off temporarily.
+            reg.ICR.write(ICR::ALL::CLEAR); // Clear all pending interrupts.
 
             // Set the baud rate, 8N1 and FIFO enabled.
             reg.IBRD.write(IBRD::BAUD_DIVINT.val(3));
             reg.FBRD.write(FBRD::BAUD_DIVFRAC.val(16));
-            reg.LCR_H.write(LCR_H::WLEN::EightBit + LCR_H::FEN::FifosEnabled);
+            reg.LCR_H
+                .write(LCR_H::WLEN::EightBit + LCR_H::FEN::FifosEnabled);
 
             // Turn the UART on.
-            reg.CR.write(CR::UARTEN::Enabled + CR::TXE::Enabled + CR::RXE::Enabled);
+            reg.CR
+                .write(CR::UARTEN::Enabled + CR::TXE::Enabled + CR::RXE::Enabled);
         });
         self.init.lock(|i| *i = true);
     }
@@ -65,20 +70,24 @@ impl UartDriver {
 
     pub fn write_char(&self, c: char) {
         while self.registers.lock(|reg| reg.FR.matches_all(FR::TXFF::SET)) {
-                asm::nop();
+            asm::nop();
         }
         self.registers.lock(|reg| reg.DR.set(c as u32));
     }
 
-    pub fn read_char(&self, blocking: bool) -> Option<char> {
+    pub fn read_byte(&self, blocking: bool) -> Option<u8> {
         while self.registers.lock(|reg| reg.FR.matches_all(FR::RXFE::SET)) {
             if !blocking {
                 return None;
             }
             asm::nop();
         }
-        let ret = self.registers.lock(|reg| reg.DR.get()) as u8 as char;
+        let ret = self.registers.lock(|reg| reg.DR.get()) as u8;
         Some(ret)
+    }
+
+    pub fn read_char(&self, blocking: bool) -> Option<char> {
+        self.read_byte(blocking).map(|res| res as char)
     }
 
     pub fn clear_rx(&self) {
