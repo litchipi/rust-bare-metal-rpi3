@@ -8,6 +8,7 @@ pub trait SoundSource {
     fn tick(&self, count: u32) -> u32;
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum WaveShape {
     Sinus,
     Square,
@@ -28,6 +29,7 @@ impl WaveShape {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Oscillator {
     pub shape: WaveShape,
     pub reversed_shape: bool,
@@ -50,23 +52,7 @@ impl SoundSource for Oscillator {
     }
 }
 
-pub struct OscillatorMix(pub Vec<Oscillator>);
-
-impl OscillatorMix {
-    pub fn even_volume(&mut self) {
-        let volume = u32::MAX / self.0.len();
-        for osc in self.0.iter_mut() {
-            osc.volume = volume;
-        }
-    }
-}
-
-impl SoundSource for OscillatorMix {
-    fn tick(&self, count: u32) -> u32 {
-        self.0.iter().map(|o| o.tick(count)).sum()
-    }
-}
-
+#[derive(Serialize, Deserialize)]
 pub struct AdsrHandler {
     pub sig_max: u32,
 
@@ -83,5 +69,6 @@ impl AdsrHandler {
         // TODO    Apply Decay
         // TODO    Apply Sustain
         // TODO    Apply Release
+        sig
     }
 }

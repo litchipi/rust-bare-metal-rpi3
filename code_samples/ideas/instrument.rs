@@ -1,3 +1,4 @@
+#[derive(Serialize, Deserialize)]
 pub struct Instrument {
     oscillators: Vec<Oscillator>,
     filter: BTreeMap<usize, Box<impl Filter>>,
