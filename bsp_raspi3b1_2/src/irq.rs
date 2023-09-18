@@ -1,3 +1,4 @@
+#[cfg(not(feature = "builder"))]
 use core::arch::global_asm;
 
 use tock_registers::{
@@ -5,7 +6,7 @@ use tock_registers::{
     registers::{ReadOnly, WriteOnly},
 };
 
-use crate::sync::NullLock;
+use crate::sync::RwLock;
 
 pub static IRQ_MANAGER: IrqManager = IrqManager::init();
 
@@ -26,15 +27,15 @@ pub enum IrqNumber {
 }
 
 pub struct IrqManager {
-    local_irq_table: NullLock<HandlerTable<LOCAL_IRQ_COUNT>>,
-    periph_irq_table: NullLock<HandlerTable<PERIPH_IRQ_COUNT>>,
+    local_irq_table: RwLock<HandlerTable<LOCAL_IRQ_COUNT>>,
+    periph_irq_table: RwLock<HandlerTable<PERIPH_IRQ_COUNT>>,
 }
 
 impl IrqManager {
     const fn init() -> IrqManager {
         IrqManager {
-            local_irq_table: NullLock::new([None; LOCAL_IRQ_COUNT]),
-            periph_irq_table: NullLock::new([None; PERIPH_IRQ_COUNT]),
+            local_irq_table: RwLock::new([None; LOCAL_IRQ_COUNT]),
+            periph_irq_table: RwLock::new([None; PERIPH_IRQ_COUNT]),
         }
     }
 
@@ -43,15 +44,17 @@ impl IrqManager {
             IrqNumber::Local(n) => {
                 assert!(n < LOCAL_IRQ_COUNT);
                 self.local_irq_table
-                    .lock(|table| table[n] = Some(IrqHandlerDescriptor { number: n, handler }));
+                    .write(|table| table[n] = Some(IrqHandlerDescriptor { number: n, handler }));
             }
             IrqNumber::Peripheral(n) => {
                 assert!(n < PERIPH_IRQ_COUNT);
                 self.periph_irq_table
-                    .lock(|table| table[n] = Some(IrqHandlerDescriptor { number: n, handler }));
+                    .write(|table| table[n] = Some(IrqHandlerDescriptor { number: n, handler }));
             }
         }
     }
+
+    pub(crate) fn handle_pending_irqs(&self) {}
 }
 
 pub trait IrqHandler {
@@ -82,17 +85,21 @@ pub fn local_irq_unmask() {
     todo!();
 }
 
-// #[no_mangle]
-// extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
-//     let token = unsafe { &exception::asynchronous::IRQContext::new() };
-//     exception::asynchronous::irq_manager().handle_pending_irqs(token);
-// }
+pub fn exec_with_irq_masked<T>(f: impl FnOnce() -> T) -> T {
+    // TODO    Implement exec with irq masked
+    // let saved = local_irq_mask_save();
+    let ret = f();
+    // local_irq_restore(saved);
 
+    ret
+}
+
+#[cfg(not(feature = "builder"))]
 global_asm!(
     r"
-    /// Call the function provided by parameter `\handler` after saving the exception context. Provide
-    /// the context as the first parameter to '\handler'.
-    .macro CALL_WITH_CONTEXT handler
+/// Call the function provided by parameter `\handler` after saving the exception context.
+/// Provide the context as the first parameter to '\handler'.
+.macro CALL_WITH_CONTEXT handler
     __vector_\handler:
         // Make room on the stack for the exception context.
         sub    sp,  sp,  #16 * 17
@@ -114,11 +121,11 @@ global_asm!(
         stp    x26, x27, [sp, #16 * 13]
         stp    x28, x29, [sp, #16 * 14]
 
-        // Add the exception link register (ELR_EL1), saved program status (SPSR_EL1) and exception
-        // syndrome register (ESR_EL1).
-        mrs    x1,  ELR_EL1
-        mrs    x2,  SPSR_EL1
-        mrs    x3,  ESR_EL1
+        // Add the exception link register (ELR_EL2), saved program status (SPSR_EL2) and exception
+        // syndrome register (ESR_EL2).
+        mrs    x1,  ELR_EL2
+        mrs    x2,  SPSR_EL2
+        mrs    x3,  ESR_EL2
 
         stp    lr,  x1,  [sp, #16 * 15]
         stp    x2,  x3,  [sp, #16 * 16]
@@ -135,94 +142,87 @@ global_asm!(
 
     .size    __vector_\handler, . - __vector_\handler
     .type    __vector_\handler, function
-    .endm
-"
-);
+.endm
 
-global_asm!(
-    r"
 .macro FIQ_SUSPEND
     1:    wfe
           b 1b
 .endm
-"
-);
 
-global_asm!(
-    r"
+.section .text
 
-    .section .text
-    .align 11
+.align 11
 
-    __exception_vector_start:
-        .org 0x000
-        	CALL_WITH_CONTEXT current_el0_synchronous
-        .org 0x080
-        	CALL_WITH_CONTEXT current_el0_irq
-        .org 0x100
-        	FIQ_SUSPEND
-        .org 0x180
-        	CALL_WITH_CONTEXT current_el0_serror
+__exception_vector_start:
+    .org 0x000
+    	CALL_WITH_CONTEXT current_el0_synchronous
+    .org 0x080
+    	CALL_WITH_CONTEXT current_el0_irq
+    .org 0x100
+    	FIQ_SUSPEND
+    .org 0x180
+    	CALL_WITH_CONTEXT current_el0_serror
 
-        // Current exception level with SP_ELx, x > 0.
-        .org 0x200
-        	CALL_WITH_CONTEXT current_elx_synchronous
-        .org 0x280
-        	CALL_WITH_CONTEXT current_elx_irq
-        .org 0x300
-        	FIQ_SUSPEND
-        .org 0x380
-        	CALL_WITH_CONTEXT current_elx_serror
+    // Current exception level with SP_ELx, x > 0.
+    .org 0x200
+    	CALL_WITH_CONTEXT current_elx_synchronous
+    .org 0x280
+    	CALL_WITH_CONTEXT current_elx_irq
+    .org 0x300
+    	FIQ_SUSPEND
+    .org 0x380
+    	CALL_WITH_CONTEXT current_elx_serror
 
-        // Lower exception level, AArch64
-        .org 0x400
-        	CALL_WITH_CONTEXT lower_aarch64_synchronous
-        .org 0x480
-        	CALL_WITH_CONTEXT lower_aarch64_irq
-        .org 0x500
-        	FIQ_SUSPEND
-        .org 0x580
-        	CALL_WITH_CONTEXT lower_aarch64_serror
+    // Lower exception level, AArch64
+    .org 0x400
+    	CALL_WITH_CONTEXT lower_aarch64_synchronous
+    .org 0x480
+    	CALL_WITH_CONTEXT lower_aarch64_irq
+    .org 0x500
+    	FIQ_SUSPEND
+    .org 0x580
+    	CALL_WITH_CONTEXT lower_aarch64_serror
 
-        // Lower exception level, AArch32
-        .org 0x600
-        	CALL_WITH_CONTEXT lower_aarch32_synchronous
-        .org 0x680
-        	CALL_WITH_CONTEXT lower_aarch32_irq
-        .org 0x700
-        	FIQ_SUSPEND
-        .org 0x780
-        	CALL_WITH_CONTEXT lower_aarch32_serror
-        .org 0x800
-    
-    __exception_restore_context:
-        ldr    w19,      [sp, #16 * 16]
-        ldp    lr,  x20, [sp, #16 * 15]
+    // Lower exception level, AArch32
+    .org 0x600
+    	CALL_WITH_CONTEXT lower_aarch32_synchronous
+    .org 0x680
+    	CALL_WITH_CONTEXT lower_aarch32_irq
+    .org 0x700
+    	FIQ_SUSPEND
+    .org 0x780
+    	CALL_WITH_CONTEXT lower_aarch32_serror
+    .org 0x800
 
-        msr    SPSR_EL1, x19
-        msr    ELR_EL1,  x20
+__exception_restore_context:
+    ldr    w19,      [sp, #16 * 16]
+    ldp    lr,  x20, [sp, #16 * 15]
 
-        ldp    x0,  x1,  [sp, #16 * 0]
-        ldp    x2,  x3,  [sp, #16 * 1]
-        ldp    x4,  x5,  [sp, #16 * 2]
-        ldp    x6,  x7,  [sp, #16 * 3]
-        ldp    x8,  x9,  [sp, #16 * 4]
-        ldp    x10, x11, [sp, #16 * 5]
-        ldp    x12, x13, [sp, #16 * 6]
-        ldp    x14, x15, [sp, #16 * 7]
-        ldp    x16, x17, [sp, #16 * 8]
-        ldp    x18, x19, [sp, #16 * 9]
-        ldp    x20, x21, [sp, #16 * 10]
-        ldp    x22, x23, [sp, #16 * 11]
-        ldp    x24, x25, [sp, #16 * 12]
-        ldp    x26, x27, [sp, #16 * 13]
-        ldp    x28, x29, [sp, #16 * 14]
+    msr    SPSR_EL2, x19
+    msr    ELR_EL2,  x20
 
-        add    sp,  sp,  #16 * 17
+    ldp    x0,  x1,  [sp, #16 * 0]
+    ldp    x2,  x3,  [sp, #16 * 1]
+    ldp    x4,  x5,  [sp, #16 * 2]
+    ldp    x6,  x7,  [sp, #16 * 3]
+    ldp    x8,  x9,  [sp, #16 * 4]
+    ldp    x10, x11, [sp, #16 * 5]
+    ldp    x12, x13, [sp, #16 * 6]
+    ldp    x14, x15, [sp, #16 * 7]
+    ldp    x16, x17, [sp, #16 * 8]
+    ldp    x18, x19, [sp, #16 * 9]
+    ldp    x20, x21, [sp, #16 * 10]
+    ldp    x22, x23, [sp, #16 * 11]
+    ldp    x24, x25, [sp, #16 * 12]
+    ldp    x26, x27, [sp, #16 * 13]
+    ldp    x28, x29, [sp, #16 * 14]
 
-        eret
+    add    sp,  sp,  #16 * 17
 
-    .size    __exception_restore_context, . - __exception_restore_context
-    .type    __exception_restore_context, function
+    eret
+
+.size    __exception_restore_context, . - __exception_restore_context
+.type    __exception_restore_context, function
+
 "
 );

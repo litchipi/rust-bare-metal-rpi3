@@ -1,18 +1,18 @@
 use core::fmt::Write;
 
-use crate::sync::NullLock;
+use crate::sync::RwLock;
 
 pub static CONSOLE: Console = Console::init();
 
-pub struct Console(NullLock<ConsoleInner>);
+pub struct Console(RwLock<ConsoleInner>);
 
 impl Console {
     pub const fn init() -> Console {
-        Console(NullLock::new(ConsoleInner::init()))
+        Console(RwLock::new(ConsoleInner::init()))
     }
 
     pub fn write_fmt(&self, args: core::fmt::Arguments) -> core::fmt::Result {
-        self.0.lock(|console| console.write_fmt(args))
+        self.0.write(|console| console.write_fmt(args))
     }
 }
 

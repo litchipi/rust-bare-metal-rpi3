@@ -16,18 +16,46 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub fn _start_rust() -> ! {
-    let mut big_addr: u64 = 16 * 1024 * 1024 * 1024;
-    unsafe { core::ptr::read_volatile(big_addr as *mut u64) };
+    bsp_raspi3b1_2::init();
+    let context = Context::setup();
+    println!("\n========================\n");
+    println!("[*] Configuration done");
+    bsp_raspi3b1_2::finish_init();
 
-    let gpio = &bsp_raspi3b1_2::drivers::GPIO;
-    gpio.configure(&[(21, PinMode::Output)]);
-    loop {
-        println!("LED ON");
-        gpio.set_pin(21);
-        spin_for(Duration::from_secs(1));
+    println!("[*] Initialization finished");
+    context.main()
+}
 
-        println!("LED OFF");
-        gpio.clear_pin(21);
-        spin_for(Duration::from_secs(1));
+pub struct Context {
+    dur: Duration,
+    led: usize,
+}
+
+impl Context {
+    pub fn setup() -> Context {
+        let uart = &bsp_raspi3b1_2::drivers::UART;
+        uart.configure(14, 15);
+
+        let gpio = &bsp_raspi3b1_2::drivers::GPIO;
+        gpio.configure(&[(21, PinMode::Output)]);
+
+        Context {
+            dur: Duration::from_secs(2),
+            led: 21,
+        }
+    }
+
+    pub fn main(self) -> ! {
+        let gpio = &bsp_raspi3b1_2::drivers::GPIO;
+        println!("[*] Starting loop");
+        loop {
+            println!("[*] LED ON");
+            gpio.set_pin(self.led);
+            spin_for(self.dur);
+
+            println!("[*] LED OFF");
+            gpio.clear_pin(self.led);
+            spin_for(self.dur);
+        }
     }
 }

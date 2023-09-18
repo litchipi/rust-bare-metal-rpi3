@@ -5,25 +5,25 @@ use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 use tock_registers::{register_bitfields, register_structs};
 
 use crate::memory::{MMIODerefWrapper, GPIO_BASE};
-use crate::sync::NullLock;
+use crate::sync::RwLock;
 use crate::timer::spin_for;
 
 const TOT_NUMBER_GPIO: usize = 54;
 pub static GPIO: GpioDriver = GpioDriver::init();
 
 pub struct GpioDriver {
-    registers: NullLock<GpioRegisters>,
+    registers: RwLock<GpioRegisters>,
 }
 
 impl GpioDriver {
     const fn init() -> GpioDriver {
         GpioDriver {
-            registers: NullLock::new(GpioRegisters::new(GPIO_BASE)),
+            registers: RwLock::new(GpioRegisters::new(GPIO_BASE)),
         }
     }
 
     pub fn panic_led_on(&self) {
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             reg.GPFSEL2.write(GPFSEL2::FSEL21::Output);
             reg.GPSET0.set(1 << 21);
         })
@@ -32,7 +32,7 @@ impl GpioDriver {
     pub fn configure(&self, config: &[(usize, PinMode)]) {
         let mut used_pins = [false; TOT_NUMBER_GPIO];
         let mut gpfsel: [u32; 6] = [0, 0, 0, 0, 0, 0];
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             gpfsel[0] = reg.GPFSEL0.get();
             gpfsel[1] = reg.GPFSEL1.get();
             gpfsel[2] = reg.GPFSEL2.get();
@@ -54,7 +54,7 @@ impl GpioDriver {
             gpfsel[fsel_idx] |= val << fsel_offset;
         }
 
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             reg.GPFSEL0.set(gpfsel[0]);
             reg.GPFSEL1.set(gpfsel[1]);
             reg.GPFSEL2.set(gpfsel[2]);
@@ -66,7 +66,7 @@ impl GpioDriver {
 
     pub fn set_pin(&self, nb: usize) {
         assert!(nb < TOT_NUMBER_GPIO);
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             if nb < 32 {
                 reg.GPSET0.set(1 << nb);
                 reg.GPSET0.set(0);
@@ -79,7 +79,7 @@ impl GpioDriver {
 
     pub fn clear_pin(&self, nb: usize) {
         assert!(nb < TOT_NUMBER_GPIO);
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             if nb < 32 {
                 reg.GPCLR0.set(1 << nb);
                 reg.GPCLR0.set(0);
@@ -92,7 +92,7 @@ impl GpioDriver {
 
     pub fn get_pin_state(&self, nb: usize) -> bool {
         assert!(nb < TOT_NUMBER_GPIO);
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             if nb < 32 {
                 (reg.GPLEV0.get() | (1 << nb)) > 0
             } else {
@@ -103,7 +103,7 @@ impl GpioDriver {
 
     pub fn disable_pud(&self, pins: &[usize]) {
         assert!(pins.iter().all(|nb| *nb < TOT_NUMBER_GPIO));
-        self.registers.lock(|reg| {
+        self.registers.read(|reg| {
             reg.GPPUD.set(0);
             spin_for(Duration::from_micros(10));
             let mut val0 = 0u32;

@@ -7,7 +7,7 @@
 use aarch64_cpu::asm;
 
 type Vec<T> = [T; 5];
-type RwLock<T> = crate::sync::NullLock<T>;
+type RwLock<T> = crate::sync::RwLock<T>;
 
 pub const TIMER_RESOLUTION_US: u64 = 30;
 pub const MAX_TIMERS_COUNT: usize = 10;

@@ -16,14 +16,30 @@ pub mod irq;
 pub mod screen;
 pub mod timer;
 
+pub static mut INIT_DONE: bool = false;
+
 const MAX_CHAINLOAD_BINARY_SIZE: u32 = u32::MAX; // TODO    To define
 
 #[cfg(feature = "builder")]
 pub const LINKER_SCRIPT: &str = include_str!("kernel.ld");
 
+pub fn init() {
+    unsafe {
+        assert!(!INIT_DONE);
+        cpu::init_cpu();
+    };
+}
+
+pub fn finish_init() {
+    // Start other cores on the scheduler task wait
+    unsafe {
+        INIT_DONE = true;
+    }
+}
+
 pub fn chainloader_binary_load(uart: &drivers::uart::UartDriver) -> ! {
     assert!(
-        uart.init.lock(|i| *i),
+        uart.init.write(|i| *i),
         "Cannot chainload: UART not initialized"
     );
     uart.flush();
