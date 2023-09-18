@@ -1,85 +1,171 @@
-// TODO   Make timer work
-//    - Make RwLock
-//    - Set timer resolution
-//    - Make Vec
-//    - Register new tries to find a free spot before creating a new one
+use core::{ops::Div, time::Duration};
 
-use aarch64_cpu::asm;
+use aarch64_cpu::registers::{CNTP_CTL_EL0, CNTP_CVAL_EL0};
+use aarch64_cpu::{asm, registers::CNTPCT_EL0};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 
-type Vec<T> = [T; 5];
-type RwLock<T> = crate::sync::RwLock<T>;
+use crate::irq::{IrqHandler, IrqNumber};
+use crate::sync::RwLock;
 
-pub const TIMER_RESOLUTION_US: u64 = 30;
-pub const MAX_TIMERS_COUNT: usize = 10;
+const NANOSEC_PER_SEC: u64 = 1_000_000_000;
 
-pub static TIMER: TimerDriver = TimerDriver::init();
+#[no_mangle]
+static ARCH_TIMER_COUNTER_FREQUENCY: u32 = 0;
 
-// Do not use this struct for sampling or screen rendering, but everything else is fine
-pub struct TimerDriver {
-    // registered_timers: RwLock<Vec<u64>>,
-    // free: RwLock<Vec<bool>>,
+fn get_arch_timer_counter_freq() -> u32 {
+    unsafe { core::ptr::read_volatile(&ARCH_TIMER_COUNTER_FREQUENCY) }
 }
 
-impl TimerDriver {
-    const fn init() -> TimerDriver {
-        TimerDriver {
-            // registered_timers: RwLock::new(Vec::new()),
-            // free: RwLock::new(Vec::new()),
+#[derive(PartialOrd, PartialEq, Debug)]
+pub struct Counter(pub u64);
+
+impl core::ops::Add for Counter {
+    type Output = Counter;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Counter(self.0.add(rhs.0))
+    }
+}
+
+impl From<Counter> for Duration {
+    fn from(value: Counter) -> Self {
+        if value.0 == 0 {
+            return Duration::ZERO;
+        }
+        let freq = get_arch_timer_counter_freq() as u64;
+        let secs = value.0.div(freq);
+        let sub_secs = value.0 % freq;
+        let nanos = sub_secs.saturating_mul(NANOSEC_PER_SEC).div(freq) as u32;
+        Duration::new(secs, nanos)
+    }
+}
+
+impl TryFrom<Duration> for Counter {
+    type Error = &'static str;
+
+    fn try_from(duration: Duration) -> Result<Self, Self::Error> {
+        if duration < Duration::from(Counter(1)) {
+            return Ok(Counter(0));
+        }
+
+        if duration > Duration::MAX {
+            return Err("Conversion error. Duration too big");
+        }
+
+        let freq: u128 = u32::from(get_arch_timer_counter_freq()) as u128;
+        let duration: u128 = duration.as_nanos();
+        let counter_value = duration.saturating_mul(freq).div(NANOSEC_PER_SEC as u128);
+
+        Ok(Counter(counter_value as u64))
+    }
+}
+
+#[inline(always)]
+fn read_cntpct() -> Counter {
+    // Prevent that the counter is read ahead of time due to out-of-order execution.
+    asm::barrier::isb(asm::barrier::SY);
+    Counter(CNTPCT_EL0.get())
+}
+
+/// Spin for a given duration.
+pub fn spin_for(duration: Duration) {
+    let curr_counter_value = read_cntpct();
+
+    let counter_value_delta: Counter = match duration.try_into() {
+        Ok(val) => val,
+        Err(msg) => {
+            // warn!("spin_for: {}. Skipping", msg);
+            return;
+        }
+    };
+    let counter_value_target = curr_counter_value + counter_value_delta;
+
+    // Busy wait.
+    // Read CNTPCT_EL0 directly to avoid the ISB that is part of [`read_cntpct`].
+    while Counter(CNTPCT_EL0.get()) < counter_value_target {}
+}
+
+const TIMER_IRQ: IrqNumber = IrqNumber::Local(1);
+
+/// Program a timer IRQ to be fired after `delay` has passed.
+fn set_timeout_irq(due_time: Duration) {
+    let counter_value_target: Counter = match due_time.try_into() {
+        Err(msg) => panic!("Error setting timeout: {msg}"),
+        Ok(val) => val,
+    };
+
+    // Set the compare value register.
+    CNTP_CVAL_EL0.set(counter_value_target.0);
+
+    // Kick off the timer.
+    CNTP_CTL_EL0.modify(CNTP_CTL_EL0::ENABLE::SET + CNTP_CTL_EL0::IMASK::CLEAR);
+}
+
+/// Conclude a pending timeout IRQ.
+fn conclude_timeout_irq() {
+    // Disable counting. De-asserts the IRQ.
+    CNTP_CTL_EL0.modify(CNTP_CTL_EL0::ENABLE::CLEAR);
+}
+
+pub static TIMERS: TimeManager = TimeManager::init();
+pub type TimeoutCallback = Box<dyn Fn() + Send>;
+
+pub struct TimeManager {
+    queue: RwLock<Vec<Timeout>>,
+}
+
+// TODO    Finish implementing time manager and wire it to the IRQ system
+impl IrqHandler for TimeManager {
+    fn handle(&self) -> Result<(), &'static str> {
+        conclude_timeout_irq();
+        todo!();
+        Ok(())
+    }
+}
+
+impl TimeManager {
+    const fn init() -> TimeManager {
+        TimeManager {
+            queue: RwLock::new(Vec::new()),
         }
     }
 
-    // Called inside the Timer IRQ handler
-    pub(crate) fn tick(&self) {
-        // for (idx, is_free) in self.free.read().iter() {
-        //    if !is_free {
-        //         let count = self.registered_timers.write().get_mut(&idx);
-        //         *count = count.saturating_sub(TIMER_RESOLUTION_US);
-        //     }
-        // }
+    pub fn set_timeout(
+        &self,
+        delay: Duration,
+        period: Option<Duration>,
+        callback: TimeoutCallback,
+    ) {
+        let timeout = Timeout {
+            due_time: self.uptime() + delay,
+            period,
+            callback,
+        };
+        self.queue.write(|q| q.push(timeout));
+        set_timeout_irq(self.peek_next_due_time().unwrap());
+    }
+
+    pub fn uptime(&self) -> Duration {
         todo!();
     }
 
-    pub fn free(&self, idx: usize) {
-        // if self.free.read().get(&idx) {
-        //     panic!("Double free on timer {idx}");
-        // }
-        // *self.free.write().get_mut(&idx) = true;
-        todo!();
+    fn peek_next_due_time(&self) -> Option<Duration> {
+        self.queue.read(|q| q.iter().map(|t| t.due_time).min())
     }
+}
 
-    // Register new timer to follow, return the number
-    pub fn register_new(&self, time_us: u64) -> usize {
-        // let idx = self.registered_timers.read().len();
-        // assert!((idx + 1) < MAX_TIMERS_COUNT, "Max timers count reached");
-        // self.registered_timers.write().push(time_us);
-        // self.free.write().push(false);
-        // idx
-        todo!();
-    }
+pub struct Timeout {
+    due_time: Duration,
+    period: Option<Duration>,
+    callback: TimeoutCallback,
+}
 
-    pub fn set(&self, timer_nb: usize, time_us: u64) {
-        // *self.free.write().get_mut(&timer_nb) = false;
-        // match self.registered_timers.write().get_mut(&timer_nb) {
-        //   Some(timer) => *timer = time_us,
-        //   None => panic!("Attempt to set timer {timer_nb}, but it doesn't exist"),
-        // }
-        todo!();
-    }
-
-    // Get remaining time to wait (in microseconds)
-    pub fn get(&self, timer_nb: usize) -> u64 {
-        // if let Some(rest) = self.registered_timers.read().get(timer_nb) {
-        //   rest
-        // } else {
-        //   panic!("Unable to get timer {timer_nb}: Not there");
-        // }
-        todo!();
-    }
-
-    pub fn wait(&self, time_us: u64) {
-        let nb = self.register_new(time_us);
-        while self.get(nb) > 0 {
-            asm::wfi();
+impl Timeout {
+    pub fn refresh(&mut self) {
+        if let Some(delay) = self.period {
+            self.due_time += delay;
         }
     }
 }

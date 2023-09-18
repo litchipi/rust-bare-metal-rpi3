@@ -1,12 +1,14 @@
 #[cfg(not(feature = "builder"))]
 use core::arch::global_asm;
+use core::time::Duration;
 
 use tock_registers::{
+    interfaces::{ReadWriteable, Writeable},
     register_structs,
     registers::{ReadOnly, WriteOnly},
 };
 
-use crate::sync::RwLock;
+use crate::{sync::RwLock, timer::Counter};
 
 pub static IRQ_MANAGER: IrqManager = IrqManager::init();
 
@@ -54,7 +56,10 @@ impl IrqManager {
         }
     }
 
-    pub(crate) fn handle_pending_irqs(&self) {}
+    pub(crate) fn handle_pending_irqs(&self) {
+        // TODO    Implement this function
+        todo!();
+    }
 }
 
 pub trait IrqHandler {

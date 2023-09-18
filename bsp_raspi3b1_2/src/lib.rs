@@ -14,7 +14,6 @@ pub mod errors;
 pub mod init;
 pub mod irq;
 pub mod screen;
-pub mod timer;
 
 pub static mut INIT_DONE: bool = false;
 
