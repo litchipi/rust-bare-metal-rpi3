@@ -28,12 +28,20 @@ global_asm!(
     .section .text._start
 
     _start:
+        // Read the CPU's timer counter frequency and store it in ARCH_TIMER_COUNTER_FREQUENCY.
+        // Abort if the frequency read back as 0.
+        ADR_REL x1, ARCH_TIMER_COUNTER_FREQUENCY
+        mrs x2, CNTFRQ_EL0
+        cmp x2, xzr
+        b.eq .L_park_cpu
+        str w2, [x1]
+
         // Only proceed on the boot core. Park it otherwise.
         mrs x0, MPIDR_EL1
         and x0, x0, 3                     // Get the Core ID
         ldr x1, BOOT_CORE_ID              // provided by bsp/__board_name__/cpu.rs
         cmp x0, x1
-        b.ne .cpu_wait_loop
+        b.ne .L_park_cpu
 
         // If execution reaches here, it is the boot core.
         // Initialize DRAM.
@@ -56,7 +64,7 @@ global_asm!(
         str x3, [x1], #8
         cmp x1, x2
         b.lo .L_copy_loop
-
+    
     // Prepare the jump to Rust code.
         // Set the stack pointer.
         ADR_ABS x0, __boot_core_stack_end_exclusive
@@ -66,9 +74,9 @@ global_asm!(
         ADR_ABS x1, _start_rust
         br x1
 
-    .cpu_wait_loop:
+    .L_park_cpu:
          wfe
-         b .cpu_wait_loop
+         b .L_park_cpu
 
     .size _start, . - _start
     .type _start, function

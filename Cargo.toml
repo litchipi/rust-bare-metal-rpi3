@@ -1,22 +1,15 @@
-[package]
-name = "jam_helper"
-version = "0.1.0"
-edition = "2021"
-
-[[bin]]
-name = "jam_helper"
-test = false
-bench = false
-
-[dependencies]
-bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2" }
-
-[build-dependencies]
-bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2", features = ["builder"] }
-
 [workspace]
+resolver = "2"
 members = [
   "chainloader-client",
   "chainloader-server",
   "bsp_raspi3b1_2",
+  "execmain"
 ]
+
+[workspace.dependencies]
+bsp_raspi3b1_2 = { path = "./bsp_raspi3b1_2" }
+aarch64-cpu = "9.3.1"
+tock-registers = "0.8.1"
+clap = "4.4.2"
+serialport = "4.2.2"

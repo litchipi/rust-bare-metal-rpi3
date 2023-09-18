@@ -1,0 +1,15 @@
+[package]
+name = "jam_helper"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "jam_helper"
+test = false
+bench = false
+
+[dependencies]
+bsp_raspi3b1_2 = { workspace = true }
+
+[build-dependencies]
+bsp_raspi3b1_2 = { workspace = true, features = ["builder"] }

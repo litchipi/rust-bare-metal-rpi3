@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bsp_raspi3b1_2 = { path = "../bsp_raspi3b1_2" }
+bsp_raspi3b1_2 = { workspace = true }
 
 [build-dependencies]
-bsp_raspi3b1_2 = { path = "../bsp_raspi3b1_2", features = ["builder"]}
+bsp_raspi3b1_2 = { workspace = true, features = ["builder"]}

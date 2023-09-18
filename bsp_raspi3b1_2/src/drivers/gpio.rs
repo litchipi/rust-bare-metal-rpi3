@@ -1,10 +1,12 @@
+use core::time::Duration;
+
 use tock_registers::interfaces::{Readable, Writeable};
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 use tock_registers::{register_bitfields, register_structs};
 
 use crate::memory::{MMIODerefWrapper, GPIO_BASE};
-use crate::spin_for_cycles;
 use crate::sync::NullLock;
+use crate::timer::spin_for;
 
 const TOT_NUMBER_GPIO: usize = 54;
 pub static GPIO: GpioDriver = GpioDriver::init();
@@ -103,7 +105,7 @@ impl GpioDriver {
         assert!(pins.iter().all(|nb| *nb < TOT_NUMBER_GPIO));
         self.registers.lock(|reg| {
             reg.GPPUD.set(0);
-            spin_for_cycles(1500);
+            spin_for(Duration::from_micros(10));
             let mut val0 = 0u32;
             let mut val1 = 0u32;
             for nb in pins.iter() {
@@ -116,7 +118,7 @@ impl GpioDriver {
             reg.GPPUDCLK0.set(val0);
             reg.GPPUDCLK1.set(val1);
 
-            spin_for_cycles(1500);
+            spin_for(Duration::from_micros(10));
             reg.GPPUD.set(0);
             reg.GPPUDCLK0.set(0);
             reg.GPPUDCLK1.set(0);

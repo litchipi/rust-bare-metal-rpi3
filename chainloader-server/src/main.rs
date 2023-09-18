@@ -31,11 +31,11 @@ fn load_kernel(args: &Args, mut serial: Box<dyn SerialPort>) {
     while buff != [51; 3] {
         serial.write(&['c' as u8]);
         let _ = serial.read(&mut buff);
-        // println!("{buff:?}");
+        print!("\r{buff:?}");
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+    println!("\nGot init from target");
     serial.write(&['u' as u8]);
-    println!("Got init from target");
 
     let mut kernel_file = File::open(&args.kernel_fpath).expect("Unable to load kernel file");
     let kernel_size: u32 = kernel_file

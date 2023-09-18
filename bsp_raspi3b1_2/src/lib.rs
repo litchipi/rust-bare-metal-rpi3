@@ -8,13 +8,13 @@ mod mailboxes;
 mod memory;
 mod sync;
 
-pub use cpu::spin_for_cycles;
-
 pub mod console;
 pub mod drivers;
 pub mod errors;
 pub mod init;
+pub mod irq;
 pub mod screen;
+pub mod timer;
 
 const MAX_CHAINLOAD_BINARY_SIZE: u32 = u32::MAX; // TODO    To define
 

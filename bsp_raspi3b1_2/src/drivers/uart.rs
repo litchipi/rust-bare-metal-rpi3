@@ -6,6 +6,7 @@ use tock_registers::{
 };
 
 use crate::{
+    irq::IrqHandler,
     memory::{MMIODerefWrapper, UART0_BASE},
     sync::NullLock,
 };
@@ -91,6 +92,26 @@ impl UartDriver {
 
     pub fn clear_rx(&self) {
         while let Some(c) = self.read_char(false) {}
+    }
+}
+
+impl IrqHandler for UartDriver {
+    fn handle(&self) -> Result<(), &'static str> {
+        self.registers.lock(|reg| {
+            let pending = reg.MIS.extract();
+
+            // Clear all pending IRQs.
+            reg.ICR.write(ICR::ALL::CLEAR);
+
+            // Check for any kind of RX interrupt.
+            if pending.matches_any(MIS::RXMIS::SET + MIS::RTMIS::SET) {
+                // Echo any received characters.
+                while let Some(c) = self.read_char(false) {
+                    // TODO    When get a '\n' char, pass command to console
+                }
+            }
+        });
+        Ok(())
     }
 }
 
@@ -201,6 +222,52 @@ register_bitfields! {
         ]
     ],
 
+    /// Interrupt FIFO Level Select Register.
+    IFLS [
+        /// Receive interrupt FIFO level select. The trigger points for the receive interrupt are as
+        /// follows.
+        RXIFLSEL OFFSET(3) NUMBITS(5) [
+            OneEigth = 0b000,
+            OneQuarter = 0b001,
+            OneHalf = 0b010,
+            ThreeQuarters = 0b011,
+            SevenEights = 0b100
+        ]
+    ],
+
+    /// Interrupt Mask Set/Clear Register.
+    IMSC [
+        /// Receive timeout interrupt mask. A read returns the current mask for the UARTRTINTR
+        /// interrupt.
+        ///
+        /// - On a write of 1, the mask of the UARTRTINTR interrupt is set.
+        /// - A write of 0 clears the mask.
+        RTIM OFFSET(6) NUMBITS(1) [
+            Disabled = 0,
+            Enabled = 1
+        ],
+
+        /// Receive interrupt mask. A read returns the current mask for the UARTRXINTR interrupt.
+        ///
+        /// - On a write of 1, the mask of the UARTRXINTR interrupt is set.
+        /// - A write of 0 clears the mask.
+        RXIM OFFSET(4) NUMBITS(1) [
+            Disabled = 0,
+            Enabled = 1
+        ]
+    ],
+
+    /// Masked Interrupt Status Register.
+    MIS [
+        /// Receive timeout masked interrupt status. Returns the masked interrupt state of the
+        /// UARTRTINTR interrupt.
+        RTMIS OFFSET(6) NUMBITS(1) [],
+
+        /// Receive masked interrupt status. Returns the masked interrupt state of the UARTRXINTR
+        /// interrupt.
+        RXMIS OFFSET(4) NUMBITS(1) []
+    ],
+
     /// Interrupt Clear Register.
     ICR [
         /// Meta field for all pending interrupts.
@@ -219,7 +286,10 @@ register_structs! {
         (0x28 => FBRD: WriteOnly<u32, FBRD::Register>),
         (0x2c => LCR_H: WriteOnly<u32, LCR_H::Register>),
         (0x30 => CR: WriteOnly<u32, CR::Register>),
-        (0x34 => _reserved3),
+        (0x34 => IFLS: ReadWrite<u32, IFLS::Register>),
+        (0x38 => IMSC: ReadWrite<u32, IMSC::Register>),
+        (0x3C => _reserved3),
+        (0x40 => MIS: ReadOnly<u32, MIS::Register>),
         (0x44 => ICR: WriteOnly<u32, ICR::Register>),
         (0x48 => @END),
     }
