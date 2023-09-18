@@ -189,3 +189,11 @@ Then, create a basic scheduler:
     - Starts / stop a new process
   - Send operations requests to any free CPU, or wait for one to be freed before
   - Then go back to WFE / WFI
+
+## MIDI
+
+Get MIDI messages from UART
+When connected to PC:
+- Can send data over UART to test
+
+Uses baudrate of 31250

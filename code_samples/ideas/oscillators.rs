@@ -16,8 +16,14 @@ pub enum WaveShape {
 }
 
 impl WaveShape {
-    fn tick(&self, count: u32, phase: u32) -> u32 {
+    fn tick(&self, count: u32, phase: u32, velocity: u32) -> u32 {
         // TODO    Generate the raw wave ranging from u32::MIN to u32::MAX
+
+        if let Some(vel) = self.velocity {
+            // TODO    Apply velocity reduction
+            // Or change the wave depending on velocity
+        }
+
         120
     }
 }
@@ -27,8 +33,7 @@ pub struct Oscillator {
     pub reversed_shape: bool,
     pub phase: u32,    // u32::MIN = 0        u32::MAX = 2pi
 
-    pub adsr: AdsrHandler,
-
+    pub velocity: Option<u32>,
     pub volume: u32,
 }
 
@@ -38,12 +43,9 @@ impl SoundSource for Oscillator {
         if self.reversed_shape {
             count = u32::MAX - count;
         }
-        let mut sig = self.shape.tick(count, self.phase);
-
-        self.adsr.feed(&mut sig);
+        let mut sig = self.shape.tick(count, self.phase, self.velocity);
 
         // TODO    Apply volume reduction
-
         sig
     }
 }
@@ -66,16 +68,17 @@ impl SoundSource for OscillatorMix {
 }
 
 pub struct AdsrHandler {
+    pub sig_max: u32,
+
+    // TODO       Get MAX time limit for which u32::MAX corresponds to
     pub attack: u32,
     pub decay: u32,
     pub sustain: u32,
     pub release: u32,
-
-    // Some internal counters, buffers, etc ...
 }
 
 impl AdsrHandler {
-    pub fn feed(&self, sig: &mut u32) {
+    pub fn feed(&mut self, sig: u32, pressed: bool) -> u32 {
         // TODO    Apply Attack
         // TODO    Apply Decay
         // TODO    Apply Sustain
