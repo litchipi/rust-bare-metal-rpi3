@@ -17,6 +17,8 @@ pub mod init;
 pub mod irq;
 pub mod screen;
 
+pub use cpu::wait_forever;
+
 const MAX_CHAINLOAD_BINARY_SIZE: u32 = 1 * 1024 * 1024; // 1 Mo
 
 pub const LINKER_SCRIPT: &str = include_str!("kernel.ld");

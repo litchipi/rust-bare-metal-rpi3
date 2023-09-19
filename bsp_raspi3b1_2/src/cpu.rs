@@ -11,7 +11,7 @@ pub mod exception;
 #[inline(always)]
 pub fn wait_forever() -> ! {
     loop {
-        asm::wfe();
+        // asm::wfe();
         asm::wfi();
     }
 }

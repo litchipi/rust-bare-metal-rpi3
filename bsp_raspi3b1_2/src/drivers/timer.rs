@@ -1,5 +1,6 @@
 use core::{ops::Div, time::Duration};
 
+use aarch64_cpu::asm::barrier;
 use aarch64_cpu::registers::{CNTP_CTL_EL0, CNTP_CVAL_EL0};
 use aarch64_cpu::{asm, registers::CNTPCT_EL0};
 use alloc::boxed::Box;
@@ -7,6 +8,7 @@ use alloc::vec::Vec;
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 
 use crate::irq::{IrqHandler, IrqNumber, IRQ_MANAGER};
+use crate::println;
 use crate::sync::RwLock;
 
 const NANOSEC_PER_SEC: u64 = 1_000_000_000;
@@ -91,6 +93,7 @@ const TIMER_IRQ: IrqNumber = IrqNumber::Local(1);
 
 /// Program a timer IRQ to be fired after `delay` has passed.
 fn set_timeout_irq(due_time: Duration) {
+    println!("Set timeout irq to {due_time:?}");
     let counter_value_target: Counter = match due_time.try_into() {
         Err(msg) => panic!("Error setting timeout: {msg}"),
         Ok(val) => val,
@@ -119,8 +122,36 @@ pub struct TimeManager {
 impl IrqHandler for TimeManager {
     fn handle(&self) -> Result<(), &'static str> {
         conclude_timeout_irq();
-        // TODO    Handle timeout
-        todo!();
+        if self.queue.read(|q| q.is_empty()) {
+            return Ok(());
+        }
+
+        let next_due = self.peek_next_due_time().unwrap();
+        let uptime = self.uptime();
+        if next_due <= uptime {
+            let callbacks = self.queue.write(|queue| {
+                queue
+                    .iter_mut()
+                    .filter(|t| t.due_time <= uptime)
+                    .map(|t| &t.callback)
+                    .collect::<Vec<&TimeoutCallback>>()
+            });
+
+            callbacks.iter().for_each(|callback| callback());
+
+            self.queue.write(|queue| {
+                queue.iter_mut().for_each(|t| t.refresh());
+                queue.retain(|t| t.due_time > uptime)
+            });
+        }
+
+        let next_due = self.peek_next_due_time().unwrap();
+        if next_due <= self.uptime() {
+            self.handle(); // Directly handle it
+        } else {
+            set_timeout_irq(next_due);
+        }
+
         Ok(())
     }
 }
@@ -133,6 +164,7 @@ impl TimeManager {
     }
 
     pub fn register_timer(&'static self) {
+        println!("Register timer IRQ");
         IRQ_MANAGER.register(IrqNumber::Local(1), self);
         IRQ_MANAGER.enable(IrqNumber::Local(1));
     }
@@ -153,8 +185,11 @@ impl TimeManager {
     }
 
     pub fn uptime(&self) -> Duration {
-        // TODO    Get uptime
-        todo!();
+        // Prevent that the counter is read ahead of time due to out-of-order execution.
+        barrier::isb(barrier::SY);
+        let t = Counter(CNTPCT_EL0.get()).into();
+        println!("Uptime: {t:?}");
+        t
     }
 
     fn peek_next_due_time(&self) -> Option<Duration> {
