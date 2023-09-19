@@ -12,11 +12,12 @@ use crate::{errors::Errcode, sync::RwLock};
 static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::init();
 
 pub const BOARD_DEFAULT_LOAD_ADDRESS: usize = 0x8_0000;
+
 pub const BASE: usize = 0x3F00_0000;
 pub const SYSTIMER_BASE: usize = BASE + 0x0000_3000;
 pub const TXP_BASE: usize = BASE + 0x0000_4000;
 pub const DMA_BASE: usize = BASE + 0x0000_7000;
-pub const INTERRUPT_CTRL_BASE: usize = BASE + 0x0000_B200;
+pub const PERIPH_IRQ_START: usize = BASE + 0x0000_B200;
 pub const VCHIQ_BASE: usize = BASE + 0x0000_B840;
 pub const MAILBOX_BASE: usize = BASE + 0x0000_B880;
 pub const WATCHDOG_BASE: usize = BASE + 0x0010_0000;
@@ -51,6 +52,7 @@ pub const PIXELVALVE2_BASE: usize = BASE + 0x0080_7000;
 pub const HDMI_BASE: usize = BASE + 0x0090_2000;
 pub const USB_BASE: usize = BASE + 0x0098_0000;
 pub const V3D_BASE: usize = BASE + 0x00C0_0000;
+pub const LOCAL_IRQ_START: usize = 0x4000_0000;
 
 extern "Rust" {
     static __heap_start: UnsafeCell<()>;

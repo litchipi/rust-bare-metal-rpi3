@@ -6,7 +6,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 
-use crate::irq::{IrqHandler, IrqNumber};
+use crate::irq::{IrqHandler, IrqNumber, IRQ_MANAGER};
 use crate::sync::RwLock;
 
 const NANOSEC_PER_SEC: u64 = 1_000_000_000;
@@ -116,10 +116,10 @@ pub struct TimeManager {
     queue: RwLock<Vec<Timeout>>,
 }
 
-// TODO    Finish implementing time manager and wire it to the IRQ system
 impl IrqHandler for TimeManager {
     fn handle(&self) -> Result<(), &'static str> {
         conclude_timeout_irq();
+        // TODO    Handle timeout
         todo!();
         Ok(())
     }
@@ -130,6 +130,11 @@ impl TimeManager {
         TimeManager {
             queue: RwLock::new(Vec::new()),
         }
+    }
+
+    pub fn register_timer(&'static self) {
+        IRQ_MANAGER.register(IrqNumber::Local(1), self);
+        IRQ_MANAGER.enable(IrqNumber::Local(1));
     }
 
     pub fn set_timeout(
@@ -148,6 +153,7 @@ impl TimeManager {
     }
 
     pub fn uptime(&self) -> Duration {
+        // TODO    Get uptime
         todo!();
     }
 

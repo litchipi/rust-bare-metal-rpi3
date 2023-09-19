@@ -6,6 +6,7 @@ pub fn init_bsp() -> Result<(), Errcode> {
     assert!(unsafe { !INIT_DONE });
     crate::memory::init()?;
     crate::cpu::init()?;
+    crate::drivers::TIMERS.register_timer();
     //    Init allocator
     //    Init GPU
     Ok(())

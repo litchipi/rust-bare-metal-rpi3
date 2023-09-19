@@ -17,7 +17,7 @@ pub mod init;
 pub mod irq;
 pub mod screen;
 
-const MAX_CHAINLOAD_BINARY_SIZE: u32 = u32::MAX; // TODO    To define
+const MAX_CHAINLOAD_BINARY_SIZE: u32 = 1 * 1024 * 1024; // 1 Mo
 
 pub const LINKER_SCRIPT: &str = include_str!("kernel.ld");
 

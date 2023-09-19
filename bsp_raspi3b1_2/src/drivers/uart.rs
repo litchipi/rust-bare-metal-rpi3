@@ -115,7 +115,7 @@ impl IrqHandler for UartDriver {
             if pending.matches_any(MIS::RXMIS::SET + MIS::RTMIS::SET) {
                 // Echo any received characters.
                 while let Some(c) = self.read_char(false) {
-                    // TODO    When get a '\n' char, pass command to console
+                    // TODO    Add char to buffer, when get a '\n' char, pass command to console
                 }
             }
         });

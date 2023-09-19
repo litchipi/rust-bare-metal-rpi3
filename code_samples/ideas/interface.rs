@@ -145,9 +145,8 @@ impl InstrumentPresetLoading {
         // Load from SD card
     }
 
-    pub fn load_preset(&self) -> Instrument {
-        todo!();
-    }
+    // pub fn load_preset(&self) -> Instrument {
+    // }
 
     pub fn next_preset(&mut self) {
         self.selected_preset += 1;
