@@ -5,6 +5,3 @@ edition = "2021"
 
 [dependencies]
 bsp_raspi3b1_2 = { workspace = true }
-
-[build-dependencies]
-bsp_raspi3b1_2 = { workspace = true, features = ["builder"]}

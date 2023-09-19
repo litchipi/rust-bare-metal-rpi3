@@ -52,7 +52,7 @@ impl<T> InitLock<T> {
     pub fn write<'a, R>(&'a self, f: impl FnOnce(&'a mut T) -> R) -> R {
         // In a real lock, there would be code encapsulating this line that ensures that this
         // mutable reference will ever only be given out once at a time.
-        assert!(unsafe { !crate::INIT_DONE });
+        assert!(unsafe { !crate::init::INIT_DONE });
         let data = unsafe { &mut *self.data.get() };
 
         f(data)

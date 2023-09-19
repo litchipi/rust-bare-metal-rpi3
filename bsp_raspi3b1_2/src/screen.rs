@@ -18,36 +18,28 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn init() -> Screen {
-        todo!();
-    }
-
-    // pub fn write_text(&self, line: u32, msg: String, style: TextStyle) {
-    //     todo!();
+    // pub fn init() -> Screen {
     // }
 
-    pub fn draw_pixel(&self, x: u32, y: u32, color: Color) {
-        todo!();
-    }
+    // pub fn write_text(&self, line: u32, msg: String, style: TextStyle) {
+    // }
 
-    pub fn draw_line(&self, start: (u32, u32), end: (u32, u32), color: Color) {
-        todo!();
-    }
+    // pub fn draw_pixel(&self, x: u32, y: u32, color: Color) {
+    // }
 
-    pub fn draw_rect(&self, start: (u32, u32), end: (u32, u32), color: Color, fill: bool) {
-        todo!();
-    }
+    // pub fn draw_line(&self, start: (u32, u32), end: (u32, u32), color: Color) {
+    // }
 
-    pub fn draw_ellipse(&self, center: (u32, u32), size: u32, color: Color, fill: bool) {
-        todo!();
-    }
+    // pub fn draw_rect(&self, start: (u32, u32), end: (u32, u32), color: Color, fill: bool) {
+    // }
+
+    // pub fn draw_ellipse(&self, center: (u32, u32), size: u32, color: Color, fill: bool) {
+    // }
 
     // pub fn draw_polygon(&self, points: Vec<u32>, color: Color) {
     //     assert!(points.len() < 2, "Not enough points to draw the polygon");
-    //     todo!();
     // }
 
-    pub fn fill_screen(&self, color: Color) {
-        todo!();
-    }
+    // pub fn fill_screen(&self, color: Color) {
+    // }
 }

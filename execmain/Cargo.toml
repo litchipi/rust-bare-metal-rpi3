@@ -11,5 +11,10 @@ bench = false
 [dependencies]
 bsp_raspi3b1_2 = { workspace = true }
 
-[build-dependencies]
-bsp_raspi3b1_2 = { workspace = true, features = ["builder"] }
+[profile.release]
+opt-level=3
+strip=true
+incremental=false
+lto=true
+codegen-units = 1
+panic = "abort"

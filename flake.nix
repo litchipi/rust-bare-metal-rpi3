@@ -21,6 +21,10 @@
       libudev-zero
     ];
 
+    rust_flags = builtins.concatStringsSep " " [
+      "--emit asm"
+    ];
+
     mkScript = name: deps: text: let 
       app = pkgs.writeShellApplication {
         inherit name text;
@@ -45,7 +49,8 @@
       build = mkScript "build" [] ''
         echo "[*] Building target"
         mkdir -p out target
-        export "CARGO_TARGET_DIR"="$(realpath ./target)"
+        export "LD_FILE_PATH"="$(realpath ./bsp_raspi3b1_2/src/kernel.ld)"
+        export "RUSTFLAGS"="${rust_flags}"
         cd execmain
         cargo build --target="aarch64-unknown-none-softfloat" --release
         cd ..
@@ -101,6 +106,8 @@
 
       chainloader-client = mkScript "chainloader-client" [] ''
         echo "[*] Building the chainloader server"
+        export "LD_FILE_PATH"="$(realpath ./bsp_raspi3b1_2/src/kernel.ld)"
+        export "RUSTFLAGS"="${rust_flags}"
         cd chainloader-client
         cargo build --target="aarch64-unknown-none-softfloat" --release
         mkdir -p ../out

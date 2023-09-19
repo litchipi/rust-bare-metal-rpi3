@@ -3,12 +3,7 @@ name = "bsp_raspi3b1_2"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 aarch64-cpu = { workspace = true }
+linked_list_allocator = { workspace = true }
 tock-registers = { workspace = true }
-
-[features]
-builder = []
-

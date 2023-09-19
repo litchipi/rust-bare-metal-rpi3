@@ -4,9 +4,9 @@ use tock_registers::interfaces::{Readable, Writeable};
 use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
 use tock_registers::{register_bitfields, register_structs};
 
+use crate::drivers::timer::spin_for;
 use crate::memory::{MMIODerefWrapper, GPIO_BASE};
 use crate::sync::RwLock;
-use crate::timer::spin_for;
 
 const TOT_NUMBER_GPIO: usize = 54;
 pub static GPIO: GpioDriver = GpioDriver::init();

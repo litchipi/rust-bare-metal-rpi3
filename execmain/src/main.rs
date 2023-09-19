@@ -3,8 +3,12 @@
 
 use core::{panic::PanicInfo, time::Duration};
 
+#[macro_use]
+extern crate alloc;
+
 use bsp_raspi3b1_2::drivers::gpio::PinMode;
-use bsp_raspi3b1_2::timer::spin_for;
+use bsp_raspi3b1_2::drivers::timer::spin_for;
+use bsp_raspi3b1_2::init::{finish_init, init_bsp};
 use bsp_raspi3b1_2::{errors::handle_panic, println};
 
 #[panic_handler]
@@ -16,11 +20,11 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub fn _start_rust() -> ! {
-    bsp_raspi3b1_2::init();
+    init_bsp();
     let context = Context::setup();
     println!("\n========================\n");
     println!("[*] Configuration done");
-    bsp_raspi3b1_2::finish_init();
+    finish_init();
 
     println!("[*] Initialization finished");
     context.main()
@@ -48,7 +52,11 @@ impl Context {
     pub fn main(self) -> ! {
         let gpio = &bsp_raspi3b1_2::drivers::GPIO;
         println!("[*] Starting loop");
+        let mut test_vec = vec![];
+        let mut n = 0u32;
         loop {
+            test_vec.push(n);
+            println!("[*] Test vec: {:?}", test_vec);
             println!("[*] LED ON");
             gpio.set_pin(self.led);
             spin_for(self.dur);
@@ -56,6 +64,7 @@ impl Context {
             println!("[*] LED OFF");
             gpio.clear_pin(self.led);
             spin_for(self.dur);
+            n += 1;
         }
     }
 }

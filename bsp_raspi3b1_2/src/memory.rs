@@ -1,6 +1,15 @@
-use core::marker::PhantomData;
-
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    cell::UnsafeCell,
+    marker::PhantomData,
+};
+use linked_list_allocator::Heap;
 use tock_registers::RegisterLongName;
+
+use crate::{errors::Errcode, sync::RwLock};
+
+#[global_allocator]
+static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::init();
 
 pub const BOARD_DEFAULT_LOAD_ADDRESS: usize = 0x8_0000;
 pub const BASE: usize = 0x3F00_0000;
@@ -43,6 +52,11 @@ pub const HDMI_BASE: usize = BASE + 0x0090_2000;
 pub const USB_BASE: usize = BASE + 0x0098_0000;
 pub const V3D_BASE: usize = BASE + 0x00C0_0000;
 
+extern "Rust" {
+    static __heap_start: UnsafeCell<()>;
+    static __heap_end_exclusive: UnsafeCell<()>;
+}
+
 pub struct MMIODerefWrapper<T> {
     start_addr: usize,
     phantom: PhantomData<fn() -> T>,
@@ -67,3 +81,40 @@ impl<T> core::ops::Deref for MMIODerefWrapper<T> {
 }
 
 impl<T> RegisterLongName for MMIODerefWrapper<T> {}
+
+pub struct HeapAllocator {
+    heap: RwLock<Heap>,
+}
+
+impl HeapAllocator {
+    const fn init() -> HeapAllocator {
+        HeapAllocator {
+            heap: RwLock::new(Heap::empty()),
+        }
+    }
+}
+
+unsafe impl GlobalAlloc for HeapAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let result = self.heap.write(|a| a.allocate_first_fit(layout).ok());
+
+        match result {
+            None => core::ptr::null_mut(),
+            Some(allocation) => allocation.as_ptr(),
+        }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.heap
+            .write(|inner| inner.deallocate(core::ptr::NonNull::new_unchecked(ptr), layout));
+    }
+}
+
+pub(crate) fn init() -> Result<(), Errcode> {
+    unsafe {
+        let heap_addr = __heap_start.get() as *mut u8;
+        let heap_size = (__heap_end_exclusive.get() as usize) - (__heap_start.get() as usize);
+        HEAP_ALLOCATOR.heap.write(|h| h.init(heap_addr, heap_size));
+    }
+    Ok(())
+}

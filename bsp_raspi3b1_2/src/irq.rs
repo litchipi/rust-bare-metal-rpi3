@@ -1,4 +1,3 @@
-#[cfg(not(feature = "builder"))]
 use core::arch::global_asm;
 use core::time::Duration;
 
@@ -8,7 +7,8 @@ use tock_registers::{
     registers::{ReadOnly, WriteOnly},
 };
 
-use crate::{sync::RwLock, timer::Counter};
+use crate::drivers::timer::Counter;
+use crate::sync::RwLock;
 
 pub static IRQ_MANAGER: IrqManager = IrqManager::init();
 
@@ -86,10 +86,6 @@ register_structs! {
     }
 }
 
-pub fn local_irq_unmask() {
-    todo!();
-}
-
 pub fn exec_with_irq_masked<T>(f: impl FnOnce() -> T) -> T {
     // TODO    Implement exec with irq masked
     // let saved = local_irq_mask_save();
@@ -99,7 +95,6 @@ pub fn exec_with_irq_masked<T>(f: impl FnOnce() -> T) -> T {
     ret
 }
 
-#[cfg(not(feature = "builder"))]
 global_asm!(
     r"
 /// Call the function provided by parameter `\handler` after saving the exception context.

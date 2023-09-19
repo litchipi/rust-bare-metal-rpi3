@@ -274,7 +274,6 @@ enum RpiMailboxReply {
 
 impl RpiMailboxTag {
     // fn send(&self) -> Vec<u32> {
-    //     todo!();
     // }
 }
 
