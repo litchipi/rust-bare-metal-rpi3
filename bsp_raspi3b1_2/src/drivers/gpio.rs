@@ -735,22 +735,22 @@ register_bitfields! {
             Spi2Cs2 = 0b011,
         ],
 
-        FSEL46 OFFSET(15) NUMBITS(3) [
+        FSEL46 OFFSET(18) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
 
-        FSEL47 OFFSET(15) NUMBITS(3) [
+        FSEL47 OFFSET(21) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
 
-        FSEL48 OFFSET(15) NUMBITS(3) [
+        FSEL48 OFFSET(24) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
 
-        FSEL49 OFFSET(15) NUMBITS(3) [
+        FSEL49 OFFSET(27) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
@@ -763,17 +763,17 @@ register_bitfields! {
             Output = 0b001,
         ],
 
-        FSEL51 OFFSET(0) NUMBITS(3) [
+        FSEL51 OFFSET(3) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
 
-        FSEL52 OFFSET(0) NUMBITS(3) [
+        FSEL52 OFFSET(6) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],
 
-        FSEL53 OFFSET(0) NUMBITS(3) [
+        FSEL53 OFFSET(9) NUMBITS(3) [
             Input = 0b000,
             Output = 0b001,
         ],

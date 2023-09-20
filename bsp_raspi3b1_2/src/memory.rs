@@ -17,7 +17,7 @@ pub const BASE: usize = 0x3F00_0000;
 pub const SYSTIMER_BASE: usize = BASE + 0x0000_3000;
 pub const TXP_BASE: usize = BASE + 0x0000_4000;
 pub const DMA_BASE: usize = BASE + 0x0000_7000;
-pub const PERIPH_IRQ_START: usize = BASE + 0x0000_B200;
+pub const IRQ_BASE: usize = BASE + 0x0000_B000;
 pub const VCHIQ_BASE: usize = BASE + 0x0000_B840;
 pub const MAILBOX_BASE: usize = BASE + 0x0000_B880;
 pub const WATCHDOG_BASE: usize = BASE + 0x0010_0000;
@@ -112,11 +112,10 @@ unsafe impl GlobalAlloc for HeapAllocator {
     }
 }
 
-pub(crate) fn init() -> Result<(), Errcode> {
+pub(crate) fn init() {
     unsafe {
         let heap_addr = __heap_start.get() as *mut u8;
         let heap_size = (__heap_end_exclusive.get() as usize) - (__heap_start.get() as usize);
         HEAP_ALLOCATOR.heap.write(|h| h.init(heap_addr, heap_size));
     }
-    Ok(())
 }

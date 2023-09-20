@@ -6,9 +6,12 @@ use aarch64_cpu::{asm, registers::CNTPCT_EL0};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
+use tock_registers::registers::ReadWrite;
+use tock_registers::{register_bitfields, register_structs};
 
 use crate::irq::{IrqHandler, IrqNumber, IRQ_MANAGER};
-use crate::println;
+use crate::memory::{MMIODerefWrapper, SYSTIMER_BASE};
+use crate::{println, dbg};
 use crate::sync::RwLock;
 
 const NANOSEC_PER_SEC: u64 = 1_000_000_000;
@@ -56,7 +59,7 @@ impl TryFrom<Duration> for Counter {
             return Err("Conversion error. Duration too big");
         }
 
-        let freq: u128 = u32::from(get_arch_timer_counter_freq()) as u128;
+        let freq = u128::from(get_arch_timer_counter_freq());
         let duration: u128 = duration.as_nanos();
         let counter_value = duration.saturating_mul(freq).div(NANOSEC_PER_SEC as u128);
 
@@ -89,27 +92,34 @@ pub fn spin_for(duration: Duration) {
     while Counter(CNTPCT_EL0.get()) < counter_value_target {}
 }
 
-const TIMER_IRQ: IrqNumber = IrqNumber::Local(1);
+const TIMER_IRQ: IrqNumber = IrqNumber::Basic(0);
 
 /// Program a timer IRQ to be fired after `delay` has passed.
 fn set_timeout_irq(due_time: Duration) {
+    let reg : MMIODerefWrapper<SysTimerRegister> = MMIODerefWrapper::new(SYSTIMER_BASE);
     println!("Set timeout irq to {due_time:?}");
     let counter_value_target: Counter = match due_time.try_into() {
         Err(msg) => panic!("Error setting timeout: {msg}"),
         Ok(val) => val,
     };
 
-    // Set the compare value register.
+    // println!("Compare counter to {:?}", counter_value_target);
+    // println!("Current counter value: {:?}", read_cntpct());
+    // spin_for(Duration::from_secs(2));
+    // println!("Compare counter to {:?}", counter_value_target);
+    // println!("Current counter value: {:?}", read_cntpct());
     CNTP_CVAL_EL0.set(counter_value_target.0);
-
-    // Kick off the timer.
     CNTP_CTL_EL0.modify(CNTP_CTL_EL0::ENABLE::SET + CNTP_CTL_EL0::IMASK::CLEAR);
+    // reg.C1.set(2_000_000); //counter_value_target.0 as u32);
+    // reg.CS.write(CS::M1::CLEAR);
+    // reg.CS.write(CS::M1::SET);
 }
 
 /// Conclude a pending timeout IRQ.
 fn conclude_timeout_irq() {
-    // Disable counting. De-asserts the IRQ.
-    CNTP_CTL_EL0.modify(CNTP_CTL_EL0::ENABLE::CLEAR);
+    let reg : MMIODerefWrapper<SysTimerRegister> = MMIODerefWrapper::new(SYSTIMER_BASE);
+    reg.C1.set(0);
+    reg.CS.write(CS::M1::CLEAR);
 }
 
 pub static TIMERS: TimeManager = TimeManager::init();
@@ -164,9 +174,9 @@ impl TimeManager {
     }
 
     pub fn register_timer(&'static self) {
-        println!("Register timer IRQ");
-        IRQ_MANAGER.register(IrqNumber::Local(1), self);
-        IRQ_MANAGER.enable(IrqNumber::Local(1));
+        dbg!("DBG    Register timer IRQ\n");
+        IRQ_MANAGER.register(TIMER_IRQ, self);
+        IRQ_MANAGER.enable(TIMER_IRQ);
     }
 
     pub fn set_timeout(
@@ -208,5 +218,29 @@ impl Timeout {
         if let Some(delay) = self.period {
             self.due_time += delay;
         }
+    }
+}
+
+register_bitfields! {
+    u32,
+    CS [
+        M0 OFFSET(0) NUMBITS(1) [],
+        M1 OFFSET(1) NUMBITS(1) [],
+        M2 OFFSET(2) NUMBITS(1) [],
+        M3 OFFSET(3) NUMBITS(1) [],
+    ],
+}
+
+register_structs! {
+    #[allow(non_snake_case)]
+    SysTimerRegister {
+        (0x00 => CS: ReadWrite<u32, CS::Register>),
+        (0x04 => CLO: ReadWrite<u32>),
+        (0x08 => CHI: ReadWrite<u32>),
+        (0x0C => C0: ReadWrite<u32>),
+        (0x10 => C1: ReadWrite<u32>),
+        (0x14 => C2: ReadWrite<u32>),
+        (0x18 => C3: ReadWrite<u32>),
+        (0x1C => @END),
     }
 }

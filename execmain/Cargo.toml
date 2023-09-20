@@ -10,6 +10,8 @@ bench = false
 
 [dependencies]
 bsp_raspi3b1_2 = { workspace = true }
+aarch64-cpu = { workspace = true }
+tock-registers = { workspace = true }
 
 [profile.release]
 opt-level=3

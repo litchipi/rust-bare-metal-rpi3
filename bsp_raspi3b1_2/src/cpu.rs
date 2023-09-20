@@ -1,7 +1,7 @@
 use core::cell::UnsafeCell;
 
 use aarch64_cpu::asm::{self, barrier};
-use aarch64_cpu::registers::VBAR_EL2;
+use aarch64_cpu::registers::{VBAR_EL2, VBAR_EL1, VBAR_EL3};
 use tock_registers::interfaces::Writeable;
 
 use crate::errors::Errcode;
@@ -16,16 +16,14 @@ pub fn wait_forever() -> ! {
     }
 }
 
-pub(crate) fn init() -> Result<(), Errcode> {
+pub(crate) fn init() {
     // Init exceptions
     extern "Rust" {
         static __exception_vector_start: UnsafeCell<()>;
     }
     unsafe {
+        VBAR_EL1.set(__exception_vector_start.get() as u64);
         VBAR_EL2.set(__exception_vector_start.get() as u64);
     }
     barrier::isb(barrier::SY);
-
-    // Init Irq
-    Ok(())
 }

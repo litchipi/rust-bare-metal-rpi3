@@ -3,6 +3,8 @@ use core::time::Duration;
 
 use aarch64_cpu::registers::DAIF;
 use alloc::{boxed::Box, collections::BTreeMap};
+use tock_registers::register_bitfields;
+use tock_registers::registers::ReadWrite;
 use tock_registers::{
     interfaces::{ReadWriteable, Readable, Writeable},
     register_structs,
@@ -10,8 +12,8 @@ use tock_registers::{
 };
 
 use crate::drivers::timer::Counter;
-use crate::memory::{MMIODerefWrapper, LOCAL_IRQ_START, PERIPH_IRQ_START};
-use crate::println;
+use crate::memory::{MMIODerefWrapper, IRQ_BASE};
+use crate::{println, dbg};
 use crate::sync::RwLock;
 
 pub static IRQ_MANAGER: IrqManager = IrqManager::init();
@@ -21,8 +23,9 @@ pub struct IrqHandlerDescriptor {
     pub handler: &'static (dyn IrqHandler + Sync),
 }
 
+#[derive(Debug)]
 pub enum IrqNumber {
-    Local(usize),
+    Basic(usize),
     Peripheral(usize),
 }
 
@@ -53,32 +56,25 @@ impl Iterator for PendingIRQs {
 type IrqHandlerTable = BTreeMap<usize, &'static dyn IrqHandler>;
 
 pub struct IrqManager {
-    local_irq_table: RwLock<IrqHandlerTable>,
+    basic_irq_table: RwLock<IrqHandlerTable>,
     periph_irq_table: RwLock<IrqHandlerTable>,
-
-    lreg_r: MMIODerefWrapper<RLocalIrqRegister>,
-    lreg_w: RwLock<MMIODerefWrapper<WLocalIrqRegister>>,
-
-    preg_r: MMIODerefWrapper<RPeriphIrqRegister>,
-    preg_w: RwLock<MMIODerefWrapper<WPeriphIrqRegister>>,
+    regs: RwLock<MMIODerefWrapper<IrqRegister>>,
 }
 
 impl IrqManager {
     const fn init() -> IrqManager {
         IrqManager {
-            local_irq_table: RwLock::new(BTreeMap::new()),
+            basic_irq_table: RwLock::new(BTreeMap::new()),
             periph_irq_table: RwLock::new(BTreeMap::new()),
-            lreg_r: MMIODerefWrapper::new(LOCAL_IRQ_START),
-            lreg_w: RwLock::new(MMIODerefWrapper::new(LOCAL_IRQ_START)),
-            preg_r: MMIODerefWrapper::new(PERIPH_IRQ_START),
-            preg_w: RwLock::new(MMIODerefWrapper::new(PERIPH_IRQ_START)),
+            regs: RwLock::new(MMIODerefWrapper::new(IRQ_BASE)),
         }
     }
 
     pub fn register<H: IrqHandler + Sync>(&self, irq_number: IrqNumber, handler: &'static H) {
+        dbg!("Register handle for IRQ {irq_number:?}\n");
         match irq_number {
-            IrqNumber::Local(n) => {
-                self.local_irq_table.write(|table| table.insert(n, handler));
+            IrqNumber::Basic(n) => {
+                self.basic_irq_table.write(|table| table.insert(n, handler));
             }
             IrqNumber::Peripheral(n) => {
                 self.periph_irq_table
@@ -88,37 +84,38 @@ impl IrqManager {
     }
 
     pub fn enable(&self, irq_number: IrqNumber) {
-        match irq_number {
-            IrqNumber::Local(nb) => self.lreg_w.write(|regs| {
-                let enable_bit: u32 = 1 << nb;
-                regs.CORE0_TIMER_INTERRUPT_CONTROL.set(enable_bit);
-            }),
-            IrqNumber::Peripheral(nb) => self.preg_w.write(|regs| {
-                let enable_reg = if nb <= 31 {
-                    &regs.ENABLE_1
-                } else {
-                    &regs.ENABLE_2
-                };
-
-                // Writing a 1 to a bit will set the corresponding IRQ enable bit.
-                // All other IRQ enable bits are unaffected. So we don't need read and OR'ing here.
-                enable_reg.set(1 << (nb % 32));
-            }),
-        }
+        dbg!("Enabling IRQ {irq_number:?}\n");
+        self.regs.write(|regs| match irq_number {
+            IrqNumber::Basic(nb) => {
+                dbg!("DBG Set value {} to BASIC_ENABLE", 1 << nb);
+                // TODO    FIXME        Fix IRQ registering
+                unsafe {
+                    core::ptr::write_volatile((0x4000_0040) as *mut _, 1 << nb);
+                }
+                regs.BASIC_ENABLE.set(1 << nb);
+            },
+            IrqNumber::Peripheral(nb) => if nb <= 31 {
+                dbg!("DBG Set value {} to ENABLE_1", 1 << nb);
+                regs.ENABLE_1.set(1 << nb);
+            } else {
+                dbg!("DBG Set value {} to ENABLE_2", 1 << (nb % 32));
+                regs.ENABLE_2.set(1 << (nb % 32));
+            },
+        });
     }
 
     pub(crate) fn handle_pending_irqs(&self) {
-        self.handle_local_irqs();
+        self.handle_basic_irqs();
         self.handle_periph_irqs();
     }
 
-    fn handle_local_irqs(&self) {
+    fn handle_basic_irqs(&self) {
         // Ignore the indicator bit for a peripheral IRQ.
         let periph_irq_mask = !(1 << 8);
-        let pending_mask = (self.lreg_r.CORE0_INTERRUPT_SOURCE.get() & periph_irq_mask).into();
+        let pending_mask = (self.regs.read(|regs| regs.BASIC_PENDING.get()) & periph_irq_mask).into();
         for irq_number in PendingIRQs::new(pending_mask) {
-            println!("Local irq {irq_number}");
-            match self.local_irq_table.read(|t| t.get(&irq_number)) {
+            println!("Basic irq {irq_number}");
+            match self.basic_irq_table.read(|t| t.get(&irq_number)) {
                 None => panic!("No handler registered for IRQ {}", irq_number),
                 Some(handler) => {
                     handler.handle().expect("Error handling IRQ");
@@ -128,8 +125,9 @@ impl IrqManager {
     }
 
     fn handle_periph_irqs(&self) {
-        let pending_mask: u64 =
-            (u64::from(self.preg_r.PENDING_2.get()) << 32) | u64::from(self.preg_r.PENDING_1.get());
+        let pending_mask: u64 = self.regs.read(|regs|
+            (u64::from(regs.PENDING_2.get()) << 32) | u64::from(regs.PENDING_1.get())
+        );
 
         for irq_number in PendingIRQs::new(pending_mask) {
             println!("Periph irq {irq_number}");
@@ -181,40 +179,111 @@ pub fn local_irq_restore(saved: u64) {
     DAIF.set(saved);
 }
 
-register_structs! {
-    #[allow(non_snake_case)]
-    WPeriphIrqRegister {
-        (0x00 => _reserved1),
-        (0x10 => ENABLE_1: WriteOnly<u32>),
-        (0x14 => ENABLE_2: WriteOnly<u32>),
-        (0x18 => @END),
-    }
+register_bitfields! {
+    u32,
+
+    FIQ_CONTROL [
+        ENABLE OFFSET(7) NUMBITS(1) [],
+        SOURCE OFFSET(0) NUMBITS(7) [
+            ArmTimer = 64,
+            ArmMailbox = 65,
+            ArmDoorbell1 = 66,
+            ArmDoorbell2 = 67,
+            Gpu0Halted = 68,
+            Gpu1Halted = 69,
+            IllegalAccessType1 = 70,
+            IllegalAccessType0 = 71,
+        ],
+    ],
+    ENABLE_1 [
+        IRQ OFFSET(0) NUMBITS(32) [
+            SystemTimerMatch1 = 1 << 1,
+            SystemTimerMatch3 = 1 << 3,
+            UsbController = 1 << 9,
+            AuxInt = 1 << 29,
+        ]
+    ],
+    ENABLE_2 [
+        IRQ OFFSET(0) NUMBITS(32) [
+            I2cSpiSlvInt = 1 << (43 - 32),
+            Pwa0 = 1 << (45 - 32),
+            Pwa1 = 1 << (46 - 32),
+            Smi = 1 << (48 - 32),
+            GpioInt0 = 1 << (49 - 32),
+            GpioInt1 = 1 << (50 - 32),
+            GpioInt2 = 1 << (51 - 32),
+            GpioInt3 = 1 << (52 - 32),
+            I2cInt = 1 << (53 - 32),
+            SpiInt = 1 << (54 - 32),
+            PcmInt = 1 << (55 - 32),
+            UartInt = 1 << (57 - 32),
+        ]
+    ],
+    BASIC_ENABLE [
+        IRQ OFFSET(0) NUMBITS(8) [
+            ArmTimer = 1,
+            ArmMailbox = 1 << 1,
+            ArmDoorbell0 = 1 << 2,
+            ArmDoorbell1 = 1 << 3,
+            Gpu0Halted = 1 << 4,
+            Gpu1Halted = 1 << 5,
+            AccessErrorType1 = 1 << 6,
+            AccessErrorType0 = 1 << 7,
+        ]
+    ],
+    DISABLE_1 [
+        IRQ OFFSET(0) NUMBITS(32) [
+            SystemTimerMatch1 = 1 << 1,
+            SystemTimerMatch3 = 1 << 3,
+            UsbController = 1 << 9,
+            AuxInt = 1 << 29,
+        ]
+    ],
+    DISABLE_2 [
+        IRQ OFFSET(0) NUMBITS(32) [
+            I2cSpiSlvInt = 1 << (43 - 32),
+            Pwa0 = 1 << (45 - 32),
+            Pwa1 = 1 << (46 - 32),
+            Smi = 1 << (48 - 32),
+            GpioInt0 = 1 << (49 - 32),
+            GpioInt1 = 1 << (50 - 32),
+            GpioInt2 = 1 << (51 - 32),
+            GpioInt3 = 1 << (52 - 32),
+            I2cInt = 1 << (53 - 32),
+            SpiInt = 1 << (54 - 32),
+            PcmInt = 1 << (55 - 32),
+            UartInt = 1 << (57 - 32),
+        ]
+    ],
+    BASIC_DISABLE [
+        IRQ OFFSET(0) NUMBITS(8) [
+            ArmTimer = 1,
+            ArmMailbox = 1 << 1,
+            ArmDoorbell0 = 1 << 2,
+            ArmDoorbell1 = 1 << 3,
+            Gpu0Halted = 1 << 4,
+            Gpu1Halted = 1 << 5,
+            AccessErrorType1 = 1 << 6,
+            AccessErrorType0 = 1 << 7,
+        ]
+    ],
 }
 
 register_structs! {
     #[allow(non_snake_case)]
-    RPeriphIrqRegister {
-        (0x00 => _reserved1),
+    IrqRegister {
+        (0x00 => BASIC_PENDING: ReadOnly<u32>),
         (0x04 => PENDING_1: ReadOnly<u32>),
         (0x08 => PENDING_2: ReadOnly<u32>),
-        (0x0c => @END),
-    }
-}
+        (0x0C => FIQ_CONTROL: ReadWrite<u32, FIQ_CONTROL::Register>),
 
-register_structs! {
-    #[allow(non_snake_case)]
-    WLocalIrqRegister {
-        (0x00 => _reserved1),
-        (0x40 => CORE0_TIMER_INTERRUPT_CONTROL: WriteOnly<u32>),
-        (0x44 => @END),
-    }
-}
+        (0x10 => ENABLE_1: WriteOnly<u32, ENABLE_1::Register>),
+        (0x14 => ENABLE_2: WriteOnly<u32, ENABLE_2::Register>),
+        (0x18 => BASIC_ENABLE: WriteOnly<u32, BASIC_ENABLE::Register>),
 
-register_structs! {
-    #[allow(non_snake_case)]
-    RLocalIrqRegister {
-        (0x00 => _reserved1),
-        (0x60 => CORE0_INTERRUPT_SOURCE: ReadOnly<u32>),
-        (0x64 => @END),
+        (0x1C => DISABLE_1: WriteOnly<u32, DISABLE_1::Register>),
+        (0x20 => DISABLE_2: WriteOnly<u32, DISABLE_2::Register>),
+        (0x24 => BASIC_DISABLE: WriteOnly<u32, BASIC_DISABLE::Register>),
+        (0x28 => @END),
     }
 }

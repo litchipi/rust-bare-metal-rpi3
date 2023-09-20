@@ -54,9 +54,6 @@ impl core::fmt::Write for RawConsole {
                 }
             }
         }
-        unsafe {
-            core::ptr::write_volatile(addr, b'\n');
-        }
         Ok(())
     }
 }

@@ -3,7 +3,7 @@ use core::arch::global_asm;
 use aarch64_cpu::registers::{ESR_EL2, SPSR_EL2};
 use tock_registers::{interfaces::Readable, registers::InMemoryRegister};
 
-use crate::println;
+use crate::{println, dbg};
 
 struct SpsrEL2(InMemoryRegister<u64, SPSR_EL2::Register>);
 struct EsrEL2(InMemoryRegister<u64, ESR_EL2::Register>);
@@ -51,9 +51,10 @@ extern "C" fn current_el0_serror(_e: &mut ExceptionContext) {
 
 #[no_mangle]
 extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
-    // FIXME    this doesn't get executed
-    println!("Got IRQ exception");
+    // TODO    FIXME        Try to force IRQ generation and check if this get executed
+    dbg!("Got IRQ exception");
     crate::irq::IRQ_MANAGER.handle_pending_irqs();
+    panic!("IRQ handled");
 }
 
 #[no_mangle]
